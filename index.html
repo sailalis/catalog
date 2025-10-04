@@ -225,9 +225,9 @@ Yes. Full centered layout below.
 
       const tdPn = document.createElement('td');
       const pnBox = document.createElement('div'); pnBox.className='pn';
-      const tag1 = document.createElement('div'); tag1.className='tag'; tag1.textContent='JSF:';
+      const tag1 = document.createElement('div'); tag1.className='tag'; tag1.textContent='JSF';
       const val1 = document.createElement('div'); val1.className='val';
-      const tag2 = document.createElement('div'); tag2.className='tag'; tag2.textContent='MFR:';
+      const tag2 = document.createElement('div'); tag2.className='tag'; tag2.textContent='MFR';
       const val2 = document.createElement('div'); val2.className='val';
       pnBox.append(tag1,val1,tag2,val2); tdPn.appendChild(pnBox);
 
@@ -251,8 +251,8 @@ Yes. Full centered layout below.
       // PN
       let pnMax = meas('PART NUMBER');
       for (const r of rows){
-        pnMax = Math.max(pnMax, meas(`JSF: ${(r['JSF PART NUMBER']||'').toString().trim()}`));
-        pnMax = Math.max(pnMax, meas(`MFR: ${(r['MFR PART NUMBER']||'').toString().trim()}`));
+        pnMax = Math.max(pnMax, meas(`JSF ${(r['JSF PART NUMBER']||'').toString().trim()}`));
+        pnMax = Math.max(pnMax, meas(`MFR ${(r['MFR PART NUMBER']||'').toString().trim()}`));
       }
       const PN_MIN = 160;
       const PN_MAX_ALLOWED = isMobile ? Math.floor(avail*0.58) : Math.min(520, Math.floor(avail*0.65));
@@ -369,7 +369,7 @@ Yes. Full centered layout below.
         node.a.title = nom;
         node.val1.textContent = jsf;
         node.val2.textContent = mfr;
-        node.tr.title = `JSF: ${jsf} | MFR: ${mfr}`;
+        node.tr.title = `JSF ${jsf} | MFR ${mfr}`;
         node.tr.className = (idx % 2 === 0) ? 'row-a' : 'row-b';
         node.tr.style.display = '';
       }
