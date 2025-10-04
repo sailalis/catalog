@@ -11,7 +11,7 @@
   /* Banner */
   .banner{position:fixed;top:0;left:0;right:0;z-index:100;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
   .bar{display:grid;grid-template-columns:1fr;gap:10px;padding:12px 14px}
-  .bar h1{font-size:20px;font-weight:700;letter-spacing:.2px}
+  .bar h1{font-size:18px;font-weight:700;letter-spacing:.2px}
   .search{
     padding:10px 12px;border:none;border-radius:8px;font-size:15px;background:#fff;
     box-shadow:0 2px 4px rgba(0,0,0,.1);max-width:100%;
@@ -28,7 +28,7 @@
 
   /* Header + body */
   .thead{position:sticky;top:0;background:#f8f9fa;border-bottom:2px solid #dee2e6;z-index:10;overflow:hidden}
-  .thead table,#bodyTable{width:max-content;border-collapse:collapse;table-layout:auto}
+  .thead table{width:max-content;border-collapse:collapse;table-layout:auto}
   .thead th{padding:10px 12px;text-align:left;font-weight:700;white-space:nowrap;font-size:12px;text-transform:uppercase;color:#475569;border:none}
 
   .container{
@@ -38,20 +38,27 @@
     position:relative;
     touch-action:pan-y;
     overscroll-behavior-x:none;
+    -webkit-overflow-scrolling:touch;
   }
-  .tbody{position:absolute;top:0;left:0}
+
+  /* Virtual body */
   .spacer{width:100%}
-  .tbody td{padding:10px 12px;border-bottom:1px solid #e9ecef;vertical-align:middle;white-space:nowrap}
-  .tbody tr.row-a{background:#ffffff}
-  .tbody tr.row-b{background:#f6f7fb}
-  .tbody tr:hover{background:#eef2ff}
+  .tbody-wrap{
+    position:absolute;top:0;left:0;will-change:transform;contain:layout paint style;
+    transform:translate3d(0,0,0);
+  }
+  #bodyTable{width:max-content;border-collapse:collapse;table-layout:auto;contain:content}
+  #bodyTable td{padding:10px 12px;border-bottom:1px solid #e9ecef;vertical-align:middle;white-space:nowrap}
+  #bodyTable tr.row-a{background:#ffffff}
+  #bodyTable tr.row-b{background:#f6f7fb}
+  #bodyTable tr:hover{background:#eef2ff}
   .nores,.loading{text-align:center;padding:28px;color:#64748b}
 
   /* Cells */
   .nom{white-space:normal}
-  .nom a{color:#133370;text-decoration:underline}
-  .nom a:visited{color:#133370}
-  .nom a:hover{color:#136270;text-decoration:underline}
+  .nom a{color:#0b1f44;text-decoration:none}
+  .nom a:visited{color:#0b1f44}
+  .nom a:hover{text-decoration:underline}
   .nom .nom-wrap{
     max-width:28ch;         /* conservative width; wraps only if needed */
     overflow:hidden;
@@ -75,7 +82,7 @@
   @media (max-width:768px){
     .bar{gap:8px;padding:10px 12px}
     .bar h1{font-size:16px}
-    .thead th,.tbody td{padding:8px 8px;font-size:12px}
+    .thead th,#bodyTable td{padding:8px 8px;font-size:12px}
     .nom .nom-wrap{max-width:24ch}
   }
 </style>
@@ -98,7 +105,7 @@
   <!-- Table area -->
   <div id="wrap" class="wrap">
     <div class="thead">
-      <table id="hdrTable">
+      <table>
         <colgroup id="cgHead"></colgroup>
         <thead><tr id="hdr"></tr></thead>
       </table>
@@ -119,7 +126,7 @@
     // Visible: NOMENCLATURE (clickable) | PART NUMBER (stacked)
     const COLS = [
       { label: 'NOMENCLATURE', key: 'NOMENCLATURE' },
-      { label: 'PART NUMBER',  key: '_PARTNUM_' }, // JSF + MFR
+      { label: 'PART NUMBER',  key: '_PARTNUM_' },
     ];
 
     // Hidden in popover
@@ -131,6 +138,8 @@
     // STATE
     let rows = [], rowsById = new Map(), filtered = [];
     let lastStart = -1, lastEnd = -1;
+    let pool = []; // recycled row nodes
+    let poolCount = 0;
 
     // DOM
     const banner = document.getElementById('banner');
@@ -138,25 +147,23 @@
     const q = document.getElementById('q');
     const stats = document.getElementById('stats');
     const cont = document.getElementById('cont');
+    const pop = document.getElementById('pop');
     const hdr = document.getElementById('hdr');
     const cgHead = document.getElementById('cgHead');
-    const hdrTable = document.getElementById('hdrTable');
-    const pop = document.getElementById('pop');
 
     // Header
     hdr.innerHTML = COLS.map(c=>`<th>${c.label}</th>`).join('');
 
     // Flush table under banner
-    function placeTable(){
-      wrap.style.top = banner.getBoundingClientRect().height + 'px';
-    }
+    function placeTable(){ wrap.style.top = banner.getBoundingClientRect().height + 'px'; }
     placeTable();
 
     window.addEventListener('resize', () => {
       placeTable();
       computeAndSetColWidths();
       setSearchWidth();
-      render(false);
+      rebuildPool(); // pool depends on container height
+      render(true);
     });
 
     // Load CSV
@@ -175,11 +182,83 @@
 
         computeAndSetColWidths();
         setSearchWidth();
-        cont.innerHTML = '';
+        mountBodyTable();   // build DOM once
+        rebuildPool();      // create row nodes once
         render(true);
       },
       error: ()=>{ cont.innerHTML = '<div class="nores">Error loading catalog.</div>'; }
     });
+
+    // Build body table shell once
+    let spacerEl, tbodyWrap, bodyTable, cgBody, rowsTbody;
+    function mountBodyTable(){
+      cont.innerHTML = '';
+      spacerEl = document.createElement('div');
+      spacerEl.className = 'spacer';
+      tbodyWrap = document.createElement('div');
+      tbodyWrap.className = 'tbody-wrap';
+      bodyTable = document.createElement('table');
+      bodyTable.id = 'bodyTable';
+      cgBody = document.createElement('colgroup');
+      rowsTbody = document.createElement('tbody');
+      bodyTable.appendChild(cgBody);
+      bodyTable.appendChild(rowsTbody);
+      tbodyWrap.appendChild(bodyTable);
+      cont.appendChild(spacerEl);
+      cont.appendChild(tbodyWrap);
+      syncBodyColgroup();
+    }
+
+    // Create or resize the row pool
+    function rebuildPool(){
+      if (!rowsTbody) return;
+      const viewH = cont.clientHeight || 600;
+      const desired = Math.min(filtered.length, Math.ceil(viewH/ROW_H) + BUFFER*2);
+      // shrink or grow pool
+      if (desired === poolCount) return;
+      const frag = document.createDocumentFragment();
+      // Remove extras
+      while (pool.length > desired) {
+        const node = pool.pop();
+        rowsTbody.removeChild(node.tr);
+      }
+      // Add missing
+      while (pool.length < desired) {
+        const node = createRowNode();
+        pool.push(node);
+        frag.appendChild(node.tr);
+      }
+      if (frag.childNodes.length) rowsTbody.appendChild(frag);
+      poolCount = desired;
+      lastStart = -1; lastEnd = -1; // force repaint
+    }
+
+    // Create one TR with references
+    function createRowNode(){
+      const tr = document.createElement('tr');
+      const tdNom = document.createElement('td');
+      tdNom.className = 'nom';
+      const a = document.createElement('a');
+      a.href = '#';
+      a.className = 'nom-link';
+      const nomWrap = document.createElement('div');
+      nomWrap.className = 'nom-wrap';
+      a.appendChild(nomWrap);
+      tdNom.appendChild(a);
+
+      const tdPn = document.createElement('td');
+      const pnBox = document.createElement('div');
+      pnBox.className = 'pn';
+      const tag1 = document.createElement('div'); tag1.className = 'tag'; tag1.textContent = 'JSF:';
+      const val1 = document.createElement('div'); val1.className = 'val';
+      const tag2 = document.createElement('div'); tag2.className = 'tag'; tag2.textContent = 'MFR:';
+      const val2 = document.createElement('div'); val2.className = 'val';
+      pnBox.append(tag1,val1,tag2,val2);
+      tdPn.appendChild(pnBox);
+
+      tr.append(tdNom, tdPn);
+      return { tr, tdNom, a, nomWrap, val1, val2 };
+    }
 
     // Measure text width
     function meas(str, font='14px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif'){
@@ -189,36 +268,47 @@
       return Math.ceil(ctx.measureText(str).width);
     }
 
-    // Compute snug widths within viewport
+    // Compute snug widths; keep desktop NOM from stretching
     function computeAndSetColWidths(){
       const pad = 24;
       const isMobile = window.innerWidth <= 768;
       const avail = Math.max(240, (wrap.clientWidth || window.innerWidth) - 1);
 
+      // PN width
       let pnMax = meas('PART NUMBER');
       for (const r of rows){
         pnMax = Math.max(pnMax, meas(`JSF: ${(r['JSF PART NUMBER']||'').toString().trim()}`));
         pnMax = Math.max(pnMax, meas(`MFR: ${(r['MFR PART NUMBER']||'').toString().trim()}`));
       }
-      let PN_W = pnMax + pad;
       const PN_MIN = 160;
-      const PN_CAP = isMobile ? Math.floor(avail * 0.58) : Math.min(520, Math.floor(avail * 0.55));
-      PN_W = Math.max(PN_MIN, Math.min(PN_W, PN_CAP));
+      const PN_MAX_ALLOWED = isMobile
+        ? Math.floor(avail * 0.58)
+        : Math.min(520, Math.floor(avail * 0.65));
+      let PN_W = Math.max(PN_MIN, Math.min(pnMax + pad, PN_MAX_ALLOWED));
 
-      const NOM_MIN = isMobile ? 200 : 240;
-      let NOM_W = Math.max(NOM_MIN, avail - PN_W);
+      // NOM width
+      const NOM_MIN = isMobile ? 200 : 280;
+      const NOM_MAX = isMobile ? 280 : 420;
+      let NOM_W = Math.min(Math.max(NOM_MIN, avail - PN_W), NOM_MAX);
 
+      // Header colgroup
       cgHead.innerHTML = `
         <col style="width:${NOM_W}px">
         <col style="width:${PN_W}px">
       `;
+      // Body colgroup
+      if (cgBody) cgBody.innerHTML = cgHead.innerHTML;
 
       computeAndSetColWidths.NOM_W = NOM_W;
       computeAndSetColWidths.PN_W  = PN_W;
       computeAndSetColWidths.AVAIL = avail;
     }
+    function syncBodyColgroup(){
+      if (!cgBody || !cgHead) return;
+      cgBody.innerHTML = cgHead.innerHTML;
+    }
 
-    // Search width ≈ NOM width + 40px (slightly wider than NOM), capped to viewport
+    // Search width ≈ NOM + 40px
     function setSearchWidth(){
       const nom = computeAndSetColWidths.NOM_W || 280;
       const avail = computeAndSetColWidths.AVAIL || (wrap.clientWidth || window.innerWidth);
@@ -251,26 +341,30 @@
         return true;
       });
       cont.scrollTop = 0;
-      cont.scrollLeft = 0;
-      hdrTable.style.transform = 'translateX(0px)';
       lastStart = -1; lastEnd = -1;
       stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(rows.length)} parts`;
+      spacerEl.style.height = (filtered.length * ROW_H) + 'px';
+      rebuildPool();
       render(true);
       hidePop();
     }
 
-    // Vertical scroll virtualization; kill any accidental horizontal drift
-    cont.addEventListener('scroll', ()=>{
-      if (cont.scrollLeft !== 0){
-        cont.scrollLeft = 0;
-        hdrTable.style.transform = 'translateX(0px)';
+    // Smooth scroll handling with single rAF
+    let ticking = false;
+    cont.addEventListener('scroll', ()=> {
+      if (!ticking){
+        ticking = true;
+        requestAnimationFrame(()=>{
+          render(false);
+          hidePop();
+          ticking = false;
+        });
       }
-      requestAnimationFrame(()=>{ render(false); hidePop(); });
     }, {passive:true});
 
-    // Click NOMENCLATURE to show popover
+    // Delegate: click NOMENCLATURE for popover
     document.addEventListener('click', (e)=>{
-      const a = e.target.closest('a.nom-link[data-id]');
+      const a = e.target.closest('a.nom-link');
       if (a){
         e.preventDefault();
         const id = Number(a.dataset.id);
@@ -287,58 +381,50 @@
         cont.innerHTML = '<div class="nores">No parts found.</div>';
         return;
       }
-      const NOM_W = computeAndSetColWidths.NOM_W;
-      const PN_W  = computeAndSetColWidths.PN_W;
-
       const viewH = cont.clientHeight;
       const st = cont.scrollTop;
       const start = Math.max(0, Math.floor(st/ROW_H) - BUFFER);
       const end   = Math.min(filtered.length, Math.ceil((st+viewH)/ROW_H) + BUFFER);
-      if (!force && start===lastStart && end===lastEnd) return;
+
+      if (!force && start===lastStart && end===lastEnd){
+        // still move track
+        const offsetY = start * ROW_H;
+        tbodyWrap.style.transform = `translate3d(0,${offsetY}px,0)`;
+        return;
+      }
       lastStart = start; lastEnd = end;
 
       const totalH = filtered.length * ROW_H;
       const offsetY = start * ROW_H;
+      spacerEl.style.height = totalH + 'px';
+      tbodyWrap.style.transform = `translate3d(0,${offsetY}px,0)`;
 
-      let html = `<div class="spacer" style="height:${totalH}px;"></div>`;
-      html += `<div class="tbody" style="transform:translateY(${offsetY}px)">
-        <table id="bodyTable">
-          <colgroup>
-            <col style="width:${NOM_W}px">
-            <col style="width:${PN_W}px">
-          </colgroup>
-          <tbody>`;
+      // Update pool rows
+      const visible = Math.min(poolCount, end - start);
+      for (let k=0; k<visible; k++){
+        const idx = start + k;
+        const r = filtered[idx];
+        const node = pool[k];
 
-      for (let i=start;i<end;i++){
-        const r = filtered[i];
         const jsf = (r['JSF PART NUMBER']||'').toString().trim();
         const mfr = (r['MFR PART NUMBER']||'').toString().trim();
         const nom = r['NOMENCLATURE'] ?? '';
-        const zebraClass = (i % 2 === 0) ? 'row-a' : 'row-b';
 
-        html += `<tr class="${zebraClass}">`;
-
-        // NOMENCLATURE (clickable)
-        html += `<td class="nom" title="${escapeAttr(String(nom))}">
-                  <a href="#" class="nom-link" data-id="${r._id}">
-                    <div class="nom-wrap">${escapeHTML(String(nom))}</div>
-                  </a>
-                 </td>`;
-
-        // PART NUMBER (never wrap)
-        html += `<td title="${escapeAttr(`JSF: ${jsf} | MFR: ${mfr}`)}">
-                  <div class="pn">
-                    <div class="tag">JSF:</div><div class="val">${escapeHTML(jsf)}</div>
-                    <div class="tag">MFR:</div><div class="val">${escapeHTML(mfr)}</div>
-                  </div>
-                 </td>`;
-
-        html += '</tr>';
+        node.nomWrap.textContent = nom;
+        node.a.dataset.id = r._id;
+        node.a.title = nom;
+        node.val1.textContent = jsf;
+        node.val2.textContent = mfr;
+        node.tr.title = `JSF: ${jsf} | MFR: ${mfr}`;
+        node.tr.className = (idx % 2 === 0) ? 'row-a' : 'row-b';
       }
-      html += `</tbody></table></div>`;
-      cont.innerHTML = html;
-
-      hdrTable.style.transform = 'translateX(0px)';
+      // Hide any extra pooled rows when near end
+      for (let k=visible; k<poolCount; k++){
+        pool[k].tr.style.display = 'none';
+      }
+      for (let k=0; k<visible; k++){
+        pool[k].tr.style.display = '';
+      }
     }
 
     // Popover: SMR + EEL + TURN-IN + SERIAL
@@ -369,7 +455,6 @@
     // Utils
     function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
     function escapeHTML(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-    function escapeAttr(s){ return escapeHTML(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/\n/g,' '); }
     function fmt(n){ return (n??0).toLocaleString(); }
   </script>
 </body>
