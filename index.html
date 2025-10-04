@@ -10,8 +10,8 @@
 
   /* Banner */
   .banner{position:fixed;top:0;left:0;right:0;z-index:100;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
-  .bar{display:grid;grid-template-columns:1fr;gap:10px;padding:14px 16px}
-  .bar h1{font-size:20px;font-weight:700;letter-spacing:.3px}
+  .bar{display:grid;grid-template-columns:1fr;gap:10px;padding:12px 14px}
+  .bar h1{font-size:18px;font-weight:700;letter-spacing:.2px}
   .search{width:100%;padding:10px 12px;border:none;border-radius:8px;font-size:15px;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.1)}
   .search:focus{outline:none;box-shadow:0 4px 8px rgba(0,0,0,.15)}
   .filters{display:flex;gap:8px;flex-wrap:wrap}
@@ -19,28 +19,28 @@
   .fbtn.active{background:#fff;color:#667eea;border-color:#fff}
   .stats{font-size:12px;opacity:.95}
 
-  /* Table wrapper sits flush under banner */
+  /* Table area flush under banner */
   .wrap{position:fixed;left:0;right:0;bottom:0;background:#fff;overflow:hidden}
 
-  /* Header + body tables align via px col widths. Do NOT stretch: width:max-content */
-  .thead{position:sticky;top:0;background:#f8f9fa;border-bottom:2px solid #dee2e6;z-index:10}
-  .thead table,.tbody table{width:max-content;border-collapse:collapse;table-layout:auto}
+  /* Header + body tables use px col widths; header is clipped and translated to match horizontal scroll */
+  .thead{position:sticky;top:0;background:#f8f9fa;border-bottom:2px solid #dee2e6;z-index:10;overflow:hidden}
+  .thead table,#bodyTable{width:max-content;border-collapse:collapse;table-layout:auto}
   .thead th{padding:10px 12px;text-align:left;font-weight:700;white-space:nowrap;font-size:12px;text-transform:uppercase;color:#475569;border:none}
 
   .container{height:100%;overflow:auto;position:relative}
-  .spacer{width:100%}
   .tbody{position:absolute;top:0;left:0}
+  .spacer{width:100%}
   .tbody td{padding:10px 12px;border-bottom:1px solid #e9ecef;vertical-align:middle;white-space:nowrap}
   .tbody tr:hover{background:#f8fafc}
   .nores,.loading{text-align:center;padding:28px;color:#64748b}
 
   /* Cells */
-  .nom{white-space:normal} /* allow wrapping */
+  .nom{white-space:normal}
   .nom .nom-wrap{
-    max-width: 56ch;                 /* wrap when necessary */
+    max-width:48ch;            /* narrower nomenclature */
     overflow:hidden;
     display:-webkit-box;
-    -webkit-line-clamp:2;            /* fixed height for virtualization */
+    -webkit-line-clamp:2;      /* clamp for fixed row height */
     -webkit-box-orient:vertical;
   }
   .pn{display:grid;grid-template-columns:auto 1fr;column-gap:6px;row-gap:3px}
@@ -60,10 +60,10 @@
   .x{position:absolute;top:6px;right:8px;border:none;background:transparent;font-size:18px;cursor:pointer;color:#64748b}
 
   @media (max-width:768px){
-    .bar{gap:8px;padding:12px}
-    .bar h1{font-size:18px}
+    .bar{gap:8px;padding:10px 12px}
+    .bar h1{font-size:16px}
     .thead th,.tbody td{padding:8px 8px;font-size:12px}
-    .nom .nom-wrap{max-width:48ch}
+    .nom .nom-wrap{max-width:40ch}
   }
 </style>
 </head>
@@ -85,7 +85,7 @@
   <!-- Table area -->
   <div id="wrap" class="wrap">
     <div class="thead">
-      <table>
+      <table id="hdrTable">
         <colgroup id="cgHead"></colgroup>
         <thead><tr id="hdr"></tr></thead>
       </table>
@@ -103,24 +103,22 @@
     // CONFIG
     const CSV_URL = 'https://raw.githubusercontent.com/sailalis/catalog/refs/heads/main/datatest.csv';
 
-    // Visible columns: NOMENCLATURE | PART NUMBER (stacked) | DETAILS
+    // Visible: NOMENCLATURE | PART NUMBER (stacked) | DETAILS
     const COLS = [
       { label: 'NOMENCLATURE', key: 'NOMENCLATURE' },
-      { label: 'PART NUMBER',  key: '_PARTNUM_' }, // JSF + MFR stacked, never wrap
+      { label: 'PART NUMBER',  key: '_PARTNUM_' }, // JSF + MFR, never wrap
       { label: 'DETAILS',      key: '_DETAILS_' }, // button
     ];
 
-    // Hidden fields shown in popover (moved SMR here)
+    // Hidden in popover (includes SMR as requested)
     const HIDDEN_KEYS = ['SMR','EEL','TURN-IN','SERIAL'];
 
-    // Virtual rows use fixed height so we line-clamp NOMENCLATURE to 2 lines.
+    // Virtual rows
     const ROW_H = 68, BUFFER = 10, DEBOUNCE_MS = 90;
 
     // STATE
-    let rows = [];
-    let rowsById = new Map();
-    let filtered = [];
-    let lastStart = -1, lastEnd = -1;
+    let rows = [], rowsById = new Map(), filtered = [];
+    let lastStart = -1, lastEnd = -1, lastScrollLeft = 0;
 
     // DOM
     const banner = document.getElementById('banner');
@@ -130,25 +128,26 @@
     const cont = document.getElementById('cont');
     const hdr = document.getElementById('hdr');
     const cgHead = document.getElementById('cgHead');
+    const hdrTable = document.getElementById('hdrTable');
     const pop = document.getElementById('pop');
 
-    // Build header now
+    // Header now
     hdr.innerHTML = COLS.map(c=>`<th>${c.label}</th>`).join('');
 
     // Banner height -> table top flush
     function placeTable(){
-      const h = banner.getBoundingClientRect().height;
-      wrap.style.top = h + 'px';
+      wrap.style.top = banner.getBoundingClientRect().height + 'px';
     }
     placeTable();
     window.addEventListener('resize', () => { placeTable(); computeAndSetColWidths(); render(false); });
 
-    // CSV load
+    // Load CSV
     Papa.parse(CSV_URL, {
       download:true, header:true, skipEmptyLines:true,
       complete: ({data}) => {
         rows = data.map((r,i)=>{
-          const needle = [r['NOMENCLATURE']||'', r['JSF PART NUMBER']||'', r['MFR PART NUMBER']||''].join(' ').toLowerCase();
+          const needle = [r['NOMENCLATURE']||'', r['JSF PART NUMBER']||'', r['MFR PART NUMBER']||'']
+            .join(' ').toLowerCase();
           const row = {...r, _id:i, _needle:needle};
           rowsById.set(i,row);
           return row;
@@ -156,16 +155,14 @@
         filtered = rows;
         stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(rows.length)} parts`;
 
-        // Set column widths based on content
         computeAndSetColWidths();
-
         cont.innerHTML = '';
         render(true);
       },
       error: ()=>{ cont.innerHTML = '<div class="nores">Error loading catalog.</div>'; }
     });
 
-    // Measure text width in px for the table font
+    // Measure text width
     function meas(str, font='14px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif'){
       const c = meas.canvas || (meas.canvas = document.createElement('canvas'));
       const ctx = c.getContext('2d');
@@ -173,36 +170,39 @@
       return Math.ceil(ctx.measureText(str).width);
     }
 
-    // Compute px widths: PART NUMBER and DETAILS auto-fit to widest string; NOMENCLATURE fixed, wraps
+    // Compute pixel widths. No page stretch. Snug fit. Sync header/body via colgroups.
     function computeAndSetColWidths(){
-      // PART NUMBER width: max of "JSF: <jsf>" and "MFR: <mfr>"
-      let pnMax = meas('PART NUMBER'); // include header
-      const sample = rows; // use full set; if huge, sample first N
-      for (const r of sample){
-        const jsf = `JSF: ${(r['JSF PART NUMBER']||'').toString().trim()}`;
-        const mfr = `MFR: ${(r['MFR PART NUMBER']||'').toString().trim()}`;
-        pnMax = Math.max(pnMax, meas(jsf), meas(mfr));
+      // PART NUMBER column width from widest JSF/MFR strings
+      let pnMax = meas('PART NUMBER');
+      for (const r of rows){
+        pnMax = Math.max(pnMax, meas(`JSF: ${(r['JSF PART NUMBER']||'').toString().trim()}`));
+        pnMax = Math.max(pnMax, meas(`MFR: ${(r['MFR PART NUMBER']||'').toString().trim()}`));
       }
-      const cellPad = 24; // td left+right padding
-      const PN_W = Math.min(Math.max(pnMax + cellPad, 160), 520);
+      const pad = 24;
+      const PN_W = Math.min(Math.max(pnMax + pad, 160), 520);
 
-      // DETAILS width: max of header and button label
-      const detailsLabel = 'View';
-      let detMax = Math.max(meas('DETAILS'), meas(detailsLabel));
-      const DET_W = Math.min(Math.max(detMax + cellPad + 12, 84), 160);
+      // DETAILS width
+      const DET_W = Math.min(Math.max(meas('View') + pad + 12, 84), 140);
 
-      // NOMENCLATURE: wrap when needed; keep a sensible width not stretching page
-      const vw = Math.max(320, Math.min(window.innerWidth, 1600));
-      const NOM_W = Math.round(Math.min(Math.max(vw * 0.45, 360), 720)); // responsive band
+      // NOMENCLATURE width from header + sample, clamped smaller than before
+      let nomMax = meas('NOMENCLATURE');
+      // sample subset for speed
+      const N = Math.min(rows.length, 400);
+      for (let i=0;i<N;i++){
+        const s = String(rows[i]['NOMENCLATURE']||'').slice(0,90);
+        nomMax = Math.max(nomMax, meas(s));
+      }
+      const isMobile = window.innerWidth <= 768;
+      const NOM_W = Math.min(Math.max(nomMax + pad, isMobile ? 220 : 260), isMobile ? 280 : 380);
 
-      // Apply to header colgroup
+      // Apply header colgroup
       cgHead.innerHTML = `
         <col style="width:${NOM_W}px">
         <col style="width:${PN_W}px">
         <col style="width:${DET_W}px">
       `;
 
-      // Stash for body rendering
+      // stash
       computeAndSetColWidths.NOM_W = NOM_W;
       computeAndSetColWidths.PN_W  = PN_W;
       computeAndSetColWidths.DET_W = DET_W;
@@ -239,11 +239,19 @@
       hidePop();
     }
 
-    // Virtual scroll
-    cont.addEventListener('scroll', ()=>requestAnimationFrame(()=>{ render(false); hidePop(); }), {passive:true});
+    // Scroll handlers: vertical virtualization + horizontal header sync
+    cont.addEventListener('scroll', ()=>{
+      const sl = cont.scrollLeft;
+      if (sl !== lastScrollLeft){
+        lastScrollLeft = sl;
+        hdrTable.style.transform = `translateX(${-sl}px)`; // keep header aligned on mobile and desktop
+      }
+      requestAnimationFrame(()=>{ render(false); hidePop(); });
+    }, {passive:true});
+
     window.addEventListener('resize', ()=>{ render(false); });
 
-    // Delegate clicks for Details
+    // Delegate for Details
     document.addEventListener('click', (e)=>{
       const btn = e.target.closest('button.btn[data-id]');
       if (btn){
@@ -261,9 +269,9 @@
         cont.innerHTML = '<div class="nores">No parts found.</div>';
         return;
       }
-      const NOM_W = computeAndSetColWidths.NOM_W || 520;
-      const PN_W  = computeAndSetColWidths.PN_W  || 240;
-      const DET_W = computeAndSetColWidths.DET_W || 96;
+      const NOM_W = computeAndSetColWidths.NOM_W;
+      const PN_W  = computeAndSetColWidths.PN_W;
+      const DET_W = computeAndSetColWidths.DET_W;
 
       const viewH = cont.clientHeight;
       const st = cont.scrollTop;
@@ -277,7 +285,7 @@
 
       let html = `<div class="spacer" style="height:${totalH}px;"></div>`;
       html += `<div class="tbody" style="transform:translateY(${offsetY}px)">
-        <table>
+        <table id="bodyTable">
           <colgroup>
             <col style="width:${NOM_W}px">
             <col style="width:${PN_W}px">
@@ -291,13 +299,13 @@
         const mfr = (r['MFR PART NUMBER']||'').toString().trim();
 
         html += '<tr>';
-        // NOMENCLATURE (wrap allowed, line-clamped to 2 lines)
+        // NOMENCLATURE (allow wrap, clamped)
         const nom = r['NOMENCLATURE'] ?? '';
         html += `<td class="nom" title="${escapeAttr(String(nom))}">
                   <div class="nom-wrap">${escapeHTML(String(nom))}</div>
                  </td>`;
 
-        // PART NUMBER (never wrap values)
+        // PART NUMBER (never wrap)
         html += `<td title="${escapeAttr(`JSF: ${jsf} | MFR: ${mfr}`)}">
                   <div class="pn">
                     <div class="tag">JSF:</div><div class="val">${escapeHTML(jsf)}</div>
@@ -305,12 +313,15 @@
                   </div>
                  </td>`;
 
-        // DETAILS button
+        // DETAILS
         html += `<td><button class="btn" data-id="${r._id}" aria-label="View details">View</button></td>`;
         html += '</tr>';
       }
       html += `</tbody></table></div>`;
       cont.innerHTML = html;
+
+      // keep header aligned after rerender
+      hdrTable.style.transform = `translateX(${-cont.scrollLeft}px)`;
     }
 
     // Popover includes SMR + EEL + TURN-IN + SERIAL
