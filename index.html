@@ -12,7 +12,11 @@
   .banner{position:fixed;top:0;left:0;right:0;z-index:100;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
   .bar{display:grid;grid-template-columns:1fr;gap:10px;padding:12px 14px}
   .bar h1{font-size:18px;font-weight:700;letter-spacing:.2px}
-  .search{padding:10px 12px;border:none;border-radius:8px;font-size:15px;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.1);max-width:100%}
+  .search{
+    padding:10px 12px;border:none;border-radius:8px;font-size:15px;background:#fff;
+    box-shadow:0 2px 4px rgba(0,0,0,.1);max-width:100%;
+    justify-self:start; /* prevent grid stretch */
+  }
   .search:focus{outline:none;box-shadow:0 4px 8px rgba(0,0,0,.15)}
   .filters{display:flex;gap:8px;flex-wrap:wrap}
   .fbtn{padding:6px 12px;border:2px solid rgba(255,255,255,.55);border-radius:18px;background:transparent;color:#fff;font-size:13px;cursor:pointer}
@@ -29,8 +33,8 @@
 
   .container{
     height:100%;
-    overflow-y:auto;      /* vertical only */
-    overflow-x:hidden;    /* lock horizontal to stop jiggle */
+    overflow-y:auto;   /* vertical only */
+    overflow-x:hidden; /* lock horizontal to stop jiggle */
     position:relative;
     touch-action:pan-y;
     overscroll-behavior-x:none;
@@ -39,17 +43,17 @@
   .spacer{width:100%}
   .tbody td{padding:10px 12px;border-bottom:1px solid #e9ecef;vertical-align:middle;white-space:nowrap}
   .tbody tr.row-a{background:#ffffff}
-  .tbody tr.row-b{background:#f6f7fb} /* very light gray */
+  .tbody tr.row-b{background:#f6f7fb}
   .tbody tr:hover{background:#eef2ff}
   .nores,.loading{text-align:center;padding:28px;color:#64748b}
 
   /* Cells */
   .nom{white-space:normal}
-  .nom a{color:#0b1f44;text-decoration:underline}       /* conservative dark navy */
-  .nom a:visited{color:#0b1f44}
-  .nom a:hover{text-decoration:underline}
+  .nom a{color:#133370;text-decoration:underline}
+  .nom a:visited{color:#133370}
+  .nom a:hover{color:#136270;text-decoration:underline}
   .nom .nom-wrap{
-    max-width:28ch;         /* narrower nomenclature */
+    max-width:28ch;         /* conservative width; wraps only if needed */
     overflow:hidden;
     display:-webkit-box;
     -webkit-line-clamp:2;   /* fixed height for virtualization */
@@ -81,7 +85,7 @@
   <div id="banner" class="banner">
     <div class="bar">
       <h1>Parts Catalog</h1>
-      <input id="q" class="search" placeholder="Search..."/>
+      <input id="q" class="search" placeholder="Search NOMENCLATURE, JSF PART NUMBER, MFR PART NUMBER"/>
       <div class="filters">
         <button class="fbtn" data-filter="EEL">EEL: Yes</button>
         <button class="fbtn" data-filter="SERIAL">SERIAL: Yes</button>
@@ -214,13 +218,12 @@
       computeAndSetColWidths.AVAIL = avail;
     }
 
-    // Search width = NOM + PN, capped
+    // Search width ≈ NOM width + 40px (slightly wider than NOM), capped to viewport
     function setSearchWidth(){
-      const w = Math.min(
-        (computeAndSetColWidths.NOM_W||280) + (computeAndSetColWidths.PN_W||240),
-        computeAndSetColWidths.AVAIL || (wrap.clientWidth || window.innerWidth)
-      );
-      q.style.width = Math.max(240, w) + 'px';
+      const nom = computeAndSetColWidths.NOM_W || 280;
+      const avail = computeAndSetColWidths.AVAIL || (wrap.clientWidth || window.innerWidth);
+      const w = Math.min(nom + 40, avail);
+      q.style.width = Math.max(220, w) + 'px';
     }
 
     // Filters
@@ -248,7 +251,7 @@
         return true;
       });
       cont.scrollTop = 0;
-      cont.scrollLeft = 0;                 // enforce no horizontal jiggle
+      cont.scrollLeft = 0;
       hdrTable.style.transform = 'translateX(0px)';
       lastStart = -1; lastEnd = -1;
       stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(rows.length)} parts`;
@@ -311,8 +314,7 @@
         const jsf = (r['JSF PART NUMBER']||'').toString().trim();
         const mfr = (r['MFR PART NUMBER']||'').toString().trim();
         const nom = r['NOMENCLATURE'] ?? '';
-        const globalIndex = i;                        // parity from dataset order
-        const zebraClass = (globalIndex % 2 === 0) ? 'row-a' : 'row-b';
+        const zebraClass = (i % 2 === 0) ? 'row-a' : 'row-b';
 
         html += `<tr class="${zebraClass}">`;
 
