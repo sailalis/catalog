@@ -114,9 +114,9 @@
         text-overflow: ellipsis;
     }
 
+    .col-nomenclature { flex: 1 1 auto; min-width: 150px; }
     .col-jsf { flex: 0 0 120px; }
     .col-mfr { flex: 0 0 120px; }
-    .col-nomenclature { flex: 1 1 auto; min-width: 150px; }
     .col-smr { flex: 0 0 80px; }
     .col-eel { flex: 0 0 60px; }
     .col-serialized { flex: 0 0 80px; }
@@ -213,8 +213,8 @@
         <div class="header-cell col-nomenclature">MFR PART NUMBER</div>
         <div class="header-cell col-smr">SMR</div>
         <div class="header-cell col-eel">EEL</div>
-        <div class="header-cell col-serialized">SERIALIZED</div>
-        <div class="header-cell col-turnin">TURN-IN</div>
+        <div class="header-cell col-serialized">TURN-IN/div>
+        <div class="header-cell col-turnin">SERIALIZED</div>
     </div>
     <div class="table-container" id="tableContainer">
         <div class="loading">Loading catalog...</div>
@@ -332,8 +332,8 @@
                     <div class="table-cell col-mfr">${row['MFR PART NUMBER'] || ''}</div>
                     <div class="table-cell col-smr">${row['SMR CODE'] || ''}</div>
                     <div class="table-cell col-eel">${row['EEL'] || ''}</div>
-                    <div class="table-cell col-serialized">${row['SERIALIZED'] || ''}</div>
-                    <div class="table-cell col-turnin">${row['TURN-IN'] || ''}</div>
+                    <div class="table-cell col-serialized">${row['TURN-IN'] || ''}</div>
+                    <div class="table-cell col-turnin">${row['SERIALIZED'] || ''}</div>
                 </div>
             `;
         }
