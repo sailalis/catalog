@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Parts Catalog</title>
 <style>
@@ -26,6 +26,18 @@
   .table-content tr:hover{background:#f8f9fa}
   .loading,.no-results{text-align:center;padding:40px;color:#666}
   .no-results{color:#999}
+
+  .details-btn{padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:13px}
+  .details-btn:hover{background:#f1f5f9}
+
+  /* Popover */
+  .popover{position:fixed;min-width:220px;max-width:280px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:12px;z-index:1000}
+  .popover h4{font-size:13px;margin-bottom:8px;color:#334155}
+  .kv{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0;border-bottom:1px dashed #e2e8f0}
+  .kv:last-child{border-bottom:none}
+  .k{color:#64748b}
+  .v{color:#0f172a;font-weight:600}
+  .close-pop{position:absolute;top:6px;right:8px;border:none;background:transparent;font-size:18px;line-height:1;cursor:pointer;color:#64748b}
   @media (max-width:768px){
     .table-header th,.table-content td{padding:8px 4px;font-size:12px}
     h1{font-size:20px}
@@ -58,25 +70,33 @@
     </div>
   </div>
 
+  <div id="detailsPopover" class="popover" style="display:none"></div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
     // Config
     const CSV_URL = 'https://raw.githubusercontent.com/sailalis/catalog/refs/heads/main/datatest.csv';
+
+    // Visible columns (EEL, TURN-IN, SERIAL are hidden and shown via Details)
     const COLUMNS = [
       { label: 'NOMENCLATURE',    key: 'NOMENCLATURE' },
       { label: 'JSF PART NUMBER', key: 'JSF PART NUMBER' },
       { label: 'MFR PART NUMBER', key: 'MFR PART NUMBER' },
       { label: 'SMR',             key: 'SMR' },
-      { label: 'EEL',             key: 'EEL' },
-      { label: 'TURN-IN',         key: 'TURN-IN' },
-      { label: 'SERIAL',          key: 'SERIAL' },
+      { label: 'DETAILS',         key: '_DETAILS_' }, // virtual button column
     ];
-    const COL_PCTS = [34,16,16,8,6,10,10]; // sum=100
-    const ROW_HEIGHT = 45, BUFFER_SIZE = 12, SEARCH_DEBOUNCE_MS = 100;
+    const HIDDEN_KEYS = ['EEL','TURN-IN','SERIAL'];
+
+    // Widths for visible columns
+    const COL_PCTS = [38,16,16,10,20]; // sum=100
+
+    // Perf
+    const ROW_HEIGHT = 45, BUFFER = 12, DEBOUNCE_MS = 100;
 
     // State
-    let allData = [];
-    let filteredData = [];
+    let allData = [];          // rows with _id and _needle
+    let idToRow = new Map();   // _id -> row
+    let filtered = [];
     let lastStart = -1, lastEnd = -1;
 
     // DOM
@@ -85,28 +105,31 @@
     const headerRow = document.getElementById('headerRow');
     const colgroupHeader = document.getElementById('colgroupHeader');
     const stats = document.getElementById('stats');
+    const pop = document.getElementById('detailsPopover');
 
-    // Header + colgroup
+    // Header + widths
     colgroupHeader.innerHTML = COL_PCTS.map(p=>`<col style="width:${p}%">`).join('');
     headerRow.innerHTML = COLUMNS.map(c=>`<th>${c.label}</th>`).join('');
 
-    // CSV load
+    // Load CSV
     Papa.parse(CSV_URL, {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: ({ data }) => {
-        // Build lowercase index once for search speed
-        allData = data.map(r => ({
-          ...r,
-          _needle: [
-            r['NOMENCLATURE']||'',
-            r['JSF PART NUMBER']||'',
-            r['MFR PART NUMBER']||'',
-          ].join(' ').toLowerCase()
-        }));
-        filteredData = allData;
-        stats.textContent = `Showing ${fmt(filteredData.length)} of ${fmt(allData.length)} parts`;
+      download:true, header:true, skipEmptyLines:true,
+      complete: ({data}) => {
+        allData = data.map((r, idx) => {
+          const row = {
+            ...r,
+            _id: idx, // stable id
+            _needle: [
+              r['NOMENCLATURE']||'',
+              r['JSF PART NUMBER']||'',
+              r['MFR PART NUMBER']||'',
+            ].join(' ').toLowerCase()
+          };
+          idToRow.set(row._id, row);
+          return row;
+        });
+        filtered = allData;
+        stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(allData.length)} parts`;
         tableContainer.innerHTML = '';
         render(true);
       },
@@ -124,46 +147,58 @@
       });
     });
 
-    // Search (debounced)
-    searchBox.addEventListener('input', debounce(runFilter, SEARCH_DEBOUNCE_MS));
+    // Search
+    searchBox.addEventListener('input', debounce(runFilter, DEBOUNCE_MS));
 
     function runFilter(){
       const q = searchBox.value.trim().toLowerCase();
-      if (!q && activeFilters.size===0) {
-        filteredData = allData;
-      } else {
-        filteredData = allData.filter(row => {
-          if (q && !row._needle.includes(q)) return false;
-          for (const f of activeFilters) {
-            const v = (row[f] || '').toString().toLowerCase();
-            if (v !== 'yes') return false;
-          }
-          return true;
-        });
-      }
+      filtered = allData.filter(row => {
+        if (q && !row._needle.includes(q)) return false;
+        for (const f of activeFilters) {
+          const v = (row[f] || '').toString().toLowerCase();
+          if (v !== 'yes') return false;
+        }
+        return true;
+      });
       tableContainer.scrollTop = 0;
       lastStart = -1; lastEnd = -1;
-      stats.textContent = `Showing ${fmt(filteredData.length)} of ${fmt(allData.length)} parts`;
+      stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(allData.length)} parts`;
       render(true);
+      hidePopover();
     }
 
     // Virtual scroll
-    tableContainer.addEventListener('scroll', ()=>requestAnimationFrame(()=>render(false)), { passive:true });
-    window.addEventListener('resize', ()=>render(false));
+    tableContainer.addEventListener('scroll', ()=>requestAnimationFrame(()=>{ render(false); hidePopover(); }), { passive:true });
+    window.addEventListener('resize', ()=>{ render(false); hidePopover(); });
+
+    // Event delegation for "View" buttons
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button.details-btn');
+      if (btn) {
+        const id = Number(btn.dataset.id);
+        const row = idToRow.get(id);
+        if (row) showPopoverForRow(btn, row);
+        return;
+      }
+      // Dismiss if clicking outside popover
+      if (pop.style.display === 'block' && !pop.contains(e.target)) hidePopover();
+    });
+
+    document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') hidePopover(); });
 
     function render(force){
-      if (!filteredData.length) {
+      if (!filtered.length) {
         tableContainer.innerHTML = '<div class="no-results">No parts found.</div>';
         return;
       }
       const viewH = tableContainer.clientHeight;
       const scrollTop = tableContainer.scrollTop;
-      const start = Math.max(0, Math.floor(scrollTop/ROW_HEIGHT) - BUFFER_SIZE);
-      const end   = Math.min(filteredData.length, Math.ceil((scrollTop+viewH)/ROW_HEIGHT) + BUFFER_SIZE);
+      const start = Math.max(0, Math.floor(scrollTop/ROW_HEIGHT) - BUFFER);
+      const end   = Math.min(filtered.length, Math.ceil((scrollTop+viewH)/ROW_HEIGHT) + BUFFER);
       if (!force && start===lastStart && end===lastEnd) return;
       lastStart = start; lastEnd = end;
 
-      const totalH = filteredData.length * ROW_HEIGHT;
+      const totalH = filtered.length * ROW_HEIGHT;
       const offsetY = start * ROW_HEIGHT;
 
       let html = `<div class="table-spacer" style="height:${totalH}px;"></div>`;
@@ -171,18 +206,60 @@
         <table>
           <colgroup>${COL_PCTS.map(p=>`<col style="width:${p}%">`).join('')}</colgroup>
           <tbody>`;
+
       for (let i=start;i<end;i++){
-        const row = filteredData[i];
+        const row = filtered[i];
         html += '<tr>';
         for (const c of COLUMNS){
-          const v = row[c.key] ?? '';
-          html += `<td title="${escapeAttr(String(v))}">${escapeHTML(String(v))}</td>`;
+          if (c.key === '_DETAILS_') {
+            html += `<td><button class="details-btn" data-id="${row._id}" aria-label="View details">View</button></td>`;
+          } else {
+            const v = row[c.key] ?? '';
+            html += `<td title="${escapeAttr(String(v))}">${escapeHTML(String(v))}</td>`;
+          }
         }
         html += '</tr>';
       }
       html += `</tbody></table></div>`;
       tableContainer.innerHTML = html;
     }
+
+    // Popover logic
+    function showPopoverForRow(anchorBtn, row){
+      const eel = row['EEL'] ?? '';
+      const ti  = row['TURN-IN'] ?? '';
+      const ser = row['SERIAL'] ?? '';
+
+      pop.innerHTML = `
+        <button class="close-pop" aria-label="Close" onclick="(${hidePopover.toString()})()">×</button>
+        <h4>Details</h4>
+        <div class="kv"><div class="k">EEL</div><div class="v">${escapeHTML(String(eel))}</div></div>
+        <div class="kv"><div class="k">TURN-IN</div><div class="v">${escapeHTML(String(ti))}</div></div>
+        <div class="kv"><div class="k">SERIAL</div><div class="v">${escapeHTML(String(ser))}</div></div>
+      `;
+      pop.style.display = 'block';
+
+      // Position near button
+      const r = anchorBtn.getBoundingClientRect();
+      const pad = 8;
+      const popW = Math.min(280, Math.max(220, r.width*6));
+      pop.style.width = popW + 'px';
+
+      // Default: right of button; fallback below if overflow
+      let left = Math.min(window.innerWidth - popW - pad, r.right + pad);
+      let top = Math.max(8, r.top + window.scrollY - 4);
+
+      // If too close to bottom, shift up
+      const estH = 160;
+      if (top + estH > window.scrollY + window.innerHeight - 8) {
+        top = Math.max(8, window.scrollY + window.innerHeight - estH - 8);
+      }
+
+      pop.style.left = left + 'px';
+      pop.style.top  = top  + 'px';
+    }
+
+    function hidePopover(){ pop.style.display = 'none'; }
 
     // Utils
     function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
