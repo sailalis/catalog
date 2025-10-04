@@ -7,6 +7,8 @@
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;background:#f5f5f5;color:#0f172a;overflow:hidden}
+
+  /* Banner */
   .banner{position:fixed;top:0;left:0;right:0;z-index:100;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
   .bar{display:grid;grid-template-columns:1fr;gap:10px;padding:14px 16px}
   .bar h1{font-size:20px;font-weight:700;letter-spacing:.3px}
@@ -17,27 +19,39 @@
   .fbtn.active{background:#fff;color:#667eea;border-color:#fff}
   .stats{font-size:12px;opacity:.95}
 
-  .wrap{position:fixed;left:0;right:0;bottom:0;background:#fff;overflow:hidden} /* top is set by JS to sit right under banner */
+  /* Table wrapper sits flush under banner */
+  .wrap{position:fixed;left:0;right:0;bottom:0;background:#fff;overflow:hidden}
+
+  /* Header + body tables align via px col widths. Do NOT stretch: width:max-content */
   .thead{position:sticky;top:0;background:#f8f9fa;border-bottom:2px solid #dee2e6;z-index:10}
-  .thead table,.tbody table{width:100%;border-collapse:collapse;table-layout:fixed}
-  .thead th{padding:10px 8px;text-align:left;font-weight:700;white-space:nowrap;font-size:12px;text-transform:uppercase;color:#475569;border:none}
+  .thead table,.tbody table{width:max-content;border-collapse:collapse;table-layout:auto}
+  .thead th{padding:10px 12px;text-align:left;font-weight:700;white-space:nowrap;font-size:12px;text-transform:uppercase;color:#475569;border:none}
 
   .container{height:100%;overflow:auto;position:relative}
   .spacer{width:100%}
-  .tbody{position:absolute;top:0;left:0;right:0}
-  .tbody td{padding:10px 8px;border-bottom:1px solid #e9ecef;vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tbody{position:absolute;top:0;left:0}
+  .tbody td{padding:10px 12px;border-bottom:1px solid #e9ecef;vertical-align:middle;white-space:nowrap}
   .tbody tr:hover{background:#f8fafc}
   .nores,.loading{text-align:center;padding:28px;color:#64748b}
 
-  .pn{display:flex;flex-direction:column;gap:3px;white-space:normal}
-  .pn .tag{font-size:11px;color:#64748b}
-  .pn .val{font-weight:600}
+  /* Cells */
+  .nom{white-space:normal} /* allow wrapping */
+  .nom .nom-wrap{
+    max-width: 56ch;                 /* wrap when necessary */
+    overflow:hidden;
+    display:-webkit-box;
+    -webkit-line-clamp:2;            /* fixed height for virtualization */
+    -webkit-box-orient:vertical;
+  }
+  .pn{display:grid;grid-template-columns:auto 1fr;column-gap:6px;row-gap:3px}
+  .pn .tag{font-size:11px;color:#64748b;white-space:nowrap}
+  .pn .val{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* never wrap part numbers */
 
-  .btn{padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;font-size:13px;cursor:pointer}
+  .btn{padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;font-size:13px;cursor:pointer;white-space:nowrap}
   .btn:hover{background:#f1f5f9}
 
-  /* popover */
-  .pop{position:fixed;min-width:220px;max-width:280px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:12px;z-index:1000}
+  /* Popover */
+  .pop{position:fixed;min-width:220px;max-width:300px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:12px;z-index:1000}
   .pop h4{font-size:13px;margin-bottom:8px;color:#334155}
   .kv{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0;border-bottom:1px dashed #e2e8f0}
   .kv:last-child{border-bottom:none}
@@ -48,7 +62,8 @@
   @media (max-width:768px){
     .bar{gap:8px;padding:12px}
     .bar h1{font-size:18px}
-    .thead th,.tbody td{padding:8px 6px;font-size:12px}
+    .thead th,.tbody td{padding:8px 8px;font-size:12px}
+    .nom .nom-wrap{max-width:48ch}
   }
 </style>
 </head>
@@ -67,7 +82,7 @@
     </div>
   </div>
 
-  <!-- Table area sits flush under banner (top set in JS) -->
+  <!-- Table area -->
   <div id="wrap" class="wrap">
     <div class="thead">
       <table>
@@ -87,20 +102,19 @@
   <script>
     // CONFIG
     const CSV_URL = 'https://raw.githubusercontent.com/sailalis/catalog/refs/heads/main/datatest.csv';
-    // Visible columns: NOMENCLATURE | PART NUMBER (stacked) | SMR | DETAILS
+
+    // Visible columns: NOMENCLATURE | PART NUMBER (stacked) | DETAILS
     const COLS = [
       { label: 'NOMENCLATURE', key: 'NOMENCLATURE' },
-      { label: 'PART NUMBER',  key: '_PARTNUM_' }, // virtual stacked cell (JSF + MFR)
-      { label: 'SMR',          key: 'SMR' },
+      { label: 'PART NUMBER',  key: '_PARTNUM_' }, // JSF + MFR stacked, never wrap
       { label: 'DETAILS',      key: '_DETAILS_' }, // button
     ];
-    // Hidden fields shown in popover
-    const HIDDEN_KEYS = ['EEL','TURN-IN','SERIAL'];
-    // Column widths (sum 100)
-    const COL_PCTS = [42,30,10,18];
 
-    // PERF
-    const ROW_H = 56, BUFFER = 10, DEBOUNCE_MS = 90;
+    // Hidden fields shown in popover (moved SMR here)
+    const HIDDEN_KEYS = ['SMR','EEL','TURN-IN','SERIAL'];
+
+    // Virtual rows use fixed height so we line-clamp NOMENCLATURE to 2 lines.
+    const ROW_H = 68, BUFFER = 10, DEBOUNCE_MS = 90;
 
     // STATE
     let rows = [];
@@ -118,36 +132,81 @@
     const cgHead = document.getElementById('cgHead');
     const pop = document.getElementById('pop');
 
-    // Build header and widths
-    cgHead.innerHTML = COL_PCTS.map(p=>`<col style="width:${p}%">`).join('');
+    // Build header now
     hdr.innerHTML = COLS.map(c=>`<th>${c.label}</th>`).join('');
 
-    // Make table area sit exactly below banner
+    // Banner height -> table top flush
     function placeTable(){
       const h = banner.getBoundingClientRect().height;
       wrap.style.top = h + 'px';
     }
     placeTable();
-    window.addEventListener('resize', placeTable);
+    window.addEventListener('resize', () => { placeTable(); computeAndSetColWidths(); render(false); });
 
-    // Load CSV
+    // CSV load
     Papa.parse(CSV_URL, {
       download:true, header:true, skipEmptyLines:true,
       complete: ({data}) => {
         rows = data.map((r,i)=>{
-          const needle = [r['NOMENCLATURE']||'', r['JSF PART NUMBER']||'', r['MFR PART NUMBER']||'']
-            .join(' ').toLowerCase();
+          const needle = [r['NOMENCLATURE']||'', r['JSF PART NUMBER']||'', r['MFR PART NUMBER']||''].join(' ').toLowerCase();
           const row = {...r, _id:i, _needle:needle};
           rowsById.set(i,row);
           return row;
         });
         filtered = rows;
         stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(rows.length)} parts`;
+
+        // Set column widths based on content
+        computeAndSetColWidths();
+
         cont.innerHTML = '';
         render(true);
       },
       error: ()=>{ cont.innerHTML = '<div class="nores">Error loading catalog.</div>'; }
     });
+
+    // Measure text width in px for the table font
+    function meas(str, font='14px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif'){
+      const c = meas.canvas || (meas.canvas = document.createElement('canvas'));
+      const ctx = c.getContext('2d');
+      ctx.font = font;
+      return Math.ceil(ctx.measureText(str).width);
+    }
+
+    // Compute px widths: PART NUMBER and DETAILS auto-fit to widest string; NOMENCLATURE fixed, wraps
+    function computeAndSetColWidths(){
+      // PART NUMBER width: max of "JSF: <jsf>" and "MFR: <mfr>"
+      let pnMax = meas('PART NUMBER'); // include header
+      const sample = rows; // use full set; if huge, sample first N
+      for (const r of sample){
+        const jsf = `JSF: ${(r['JSF PART NUMBER']||'').toString().trim()}`;
+        const mfr = `MFR: ${(r['MFR PART NUMBER']||'').toString().trim()}`;
+        pnMax = Math.max(pnMax, meas(jsf), meas(mfr));
+      }
+      const cellPad = 24; // td left+right padding
+      const PN_W = Math.min(Math.max(pnMax + cellPad, 160), 520);
+
+      // DETAILS width: max of header and button label
+      const detailsLabel = 'View';
+      let detMax = Math.max(meas('DETAILS'), meas(detailsLabel));
+      const DET_W = Math.min(Math.max(detMax + cellPad + 12, 84), 160);
+
+      // NOMENCLATURE: wrap when needed; keep a sensible width not stretching page
+      const vw = Math.max(320, Math.min(window.innerWidth, 1600));
+      const NOM_W = Math.round(Math.min(Math.max(vw * 0.45, 360), 720)); // responsive band
+
+      // Apply to header colgroup
+      cgHead.innerHTML = `
+        <col style="width:${NOM_W}px">
+        <col style="width:${PN_W}px">
+        <col style="width:${DET_W}px">
+      `;
+
+      // Stash for body rendering
+      computeAndSetColWidths.NOM_W = NOM_W;
+      computeAndSetColWidths.PN_W  = PN_W;
+      computeAndSetColWidths.DET_W = DET_W;
+    }
 
     // Filters
     const activeFilters = new Set();
@@ -182,7 +241,7 @@
 
     // Virtual scroll
     cont.addEventListener('scroll', ()=>requestAnimationFrame(()=>{ render(false); hidePop(); }), {passive:true});
-    window.addEventListener('resize', ()=>{ render(false); hidePop(); });
+    window.addEventListener('resize', ()=>{ render(false); });
 
     // Delegate clicks for Details
     document.addEventListener('click', (e)=>{
@@ -202,6 +261,10 @@
         cont.innerHTML = '<div class="nores">No parts found.</div>';
         return;
       }
+      const NOM_W = computeAndSetColWidths.NOM_W || 520;
+      const PN_W  = computeAndSetColWidths.PN_W  || 240;
+      const DET_W = computeAndSetColWidths.DET_W || 96;
+
       const viewH = cont.clientHeight;
       const st = cont.scrollTop;
       const start = Math.max(0, Math.floor(st/ROW_H) - BUFFER);
@@ -215,7 +278,11 @@
       let html = `<div class="spacer" style="height:${totalH}px;"></div>`;
       html += `<div class="tbody" style="transform:translateY(${offsetY}px)">
         <table>
-          <colgroup>${COL_PCTS.map(p=>`<col style="width:${p}%">`).join('')}</colgroup>
+          <colgroup>
+            <col style="width:${NOM_W}px">
+            <col style="width:${PN_W}px">
+            <col style="width:${DET_W}px">
+          </colgroup>
           <tbody>`;
 
       for (let i=start;i<end;i++){
@@ -224,28 +291,29 @@
         const mfr = (r['MFR PART NUMBER']||'').toString().trim();
 
         html += '<tr>';
-        for (const c of COLS){
-          if (c.key === '_PARTNUM_'){
-            html += `<td title="${escapeAttr(`JSF: ${jsf} | MFR: ${mfr}`)}">
-              <div class="pn">
-                <div class="tag">JSF:</div><div class="val">${escapeHTML(jsf)}</div>
-                <div class="tag">MFR:</div><div class="val">${escapeHTML(mfr)}</div>
-              </div>
-            </td>`;
-          } else if (c.key === '_DETAILS_'){
-            html += `<td><button class="btn" data-id="${r._id}" aria-label="View details">View</button></td>`;
-          } else {
-            const v = r[c.key] ?? '';
-            html += `<td title="${escapeAttr(String(v))}">${escapeHTML(String(v))}</td>`;
-          }
-        }
+        // NOMENCLATURE (wrap allowed, line-clamped to 2 lines)
+        const nom = r['NOMENCLATURE'] ?? '';
+        html += `<td class="nom" title="${escapeAttr(String(nom))}">
+                  <div class="nom-wrap">${escapeHTML(String(nom))}</div>
+                 </td>`;
+
+        // PART NUMBER (never wrap values)
+        html += `<td title="${escapeAttr(`JSF: ${jsf} | MFR: ${mfr}`)}">
+                  <div class="pn">
+                    <div class="tag">JSF:</div><div class="val">${escapeHTML(jsf)}</div>
+                    <div class="tag">MFR:</div><div class="val">${escapeHTML(mfr)}</div>
+                  </div>
+                 </td>`;
+
+        // DETAILS button
+        html += `<td><button class="btn" data-id="${r._id}" aria-label="View details">View</button></td>`;
         html += '</tr>';
       }
       html += `</tbody></table></div>`;
       cont.innerHTML = html;
     }
 
-    // Popover
+    // Popover includes SMR + EEL + TURN-IN + SERIAL
     function showPop(anchor,row){
       pop.innerHTML = `
         <button class="x" aria-label="Close" onclick="(${hidePop.toString()})()">×</button>
@@ -257,16 +325,16 @@
       pop.style.display='block';
 
       const r = anchor.getBoundingClientRect();
-      const pad=8, popW=260;
+      const pad=8, popW=280;
       let left = Math.min(window.innerWidth - popW - pad, r.right + pad);
       let top  = Math.max(8, r.top + window.scrollY - 4);
-      const estH = 180;
+      const estH = 200;
       if (top + estH > window.scrollY + window.innerHeight - 8){
         top = Math.max(8, window.scrollY + window.innerHeight - estH - 8);
       }
       pop.style.width = popW+'px';
       pop.style.left  = left+'px';
-      pop.style.top   = top+'px';
+      pop.style.top   = top  +'px';
     }
     function hidePop(){ pop.style.display='none'; }
 
