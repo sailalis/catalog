@@ -153,8 +153,8 @@
 </head>
 <body>
     <div class="header">
-        <h1>Parts Catalog Lite</h1>
-        <input type="text" class="search-box" id="searchBox" placeholder="Enter part number or nomenclature...">
+        <h1>Parts Catalog</h1>
+        <input type="text" class="search-box" id="searchBox" placeholder="Search part numbers or nomenclature...">
         <div class="filters">
             <button class="filter-btn" data-filter="EEL">EEL: Yes</button>
             <button class="filter-btn" data-filter="SERIALIZED">Serialized: Yes</button>
@@ -210,12 +210,17 @@
 
     function filterData() {
         const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+        
         filteredData = allData.filter(row => {
+            // Search filter
             const matchesSearch = searchTerm === '' || 
                 (row['JSF PART NUMBER'] && row['JSF PART NUMBER'].toLowerCase().includes(searchTerm)) ||
                 (row['MFR PART NUMBER'] && row['MFR PART NUMBER'].toLowerCase().includes(searchTerm)) ||
                 (row['NOMENCLATURE'] && row['NOMENCLATURE'].toLowerCase().includes(searchTerm));
+            
             if (!matchesSearch) return false;
+            
+            // Active filters
             for (let filter of activeFilters) {
                 if (row[filter] && row[filter].toLowerCase() !== 'yes') {
                     return false;
