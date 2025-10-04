@@ -22,34 +22,37 @@
   /* Table area flush under banner */
   .wrap{position:fixed;left:0;right:0;bottom:0;background:#fff;overflow:hidden}
 
-  /* Header + body. Prevent horizontal jiggle on mobile: overflow-x hidden + touch-action pan-y */
+  /* Header + body */
   .thead{position:sticky;top:0;background:#f8f9fa;border-bottom:2px solid #dee2e6;z-index:10;overflow:hidden}
   .thead table,#bodyTable{width:max-content;border-collapse:collapse;table-layout:auto}
   .thead th{padding:10px 12px;text-align:left;font-weight:700;white-space:nowrap;font-size:12px;text-transform:uppercase;color:#475569;border:none}
 
   .container{
     height:100%;
-    overflow-y:auto;         /* vertical only */
-    overflow-x:hidden;       /* lock horizontal */
+    overflow-y:auto;      /* vertical only */
+    overflow-x:hidden;    /* lock horizontal to stop jiggle */
     position:relative;
-    touch-action:pan-y;      /* block horizontal panning */
+    touch-action:pan-y;
     overscroll-behavior-x:none;
   }
   .tbody{position:absolute;top:0;left:0}
   .spacer{width:100%}
   .tbody td{padding:10px 12px;border-bottom:1px solid #e9ecef;vertical-align:middle;white-space:nowrap}
-  .tbody tr:hover{background:#f8fafc}
+  .tbody tr.row-a{background:#ffffff}
+  .tbody tr.row-b{background:#f6f7fb} /* very light gray */
+  .tbody tr:hover{background:#eef2ff}
   .nores,.loading{text-align:center;padding:28px;color:#64748b}
 
   /* Cells */
   .nom{white-space:normal}
-  .nom a{color:inherit;text-decoration:none}
+  .nom a{color:#0b1f44;text-decoration:underline}       /* conservative dark navy */
+  .nom a:visited{color:#0b1f44}
   .nom a:hover{text-decoration:underline}
   .nom .nom-wrap{
-    max-width:34ch;          /* tighter; will wrap if needed */
+    max-width:28ch;         /* narrower nomenclature */
     overflow:hidden;
     display:-webkit-box;
-    -webkit-line-clamp:2;    /* fixed height for virtualization */
+    -webkit-line-clamp:2;   /* fixed height for virtualization */
     -webkit-box-orient:vertical;
   }
   .pn{display:grid;grid-template-columns:auto 1fr;column-gap:6px;row-gap:3px}
@@ -69,7 +72,7 @@
     .bar{gap:8px;padding:10px 12px}
     .bar h1{font-size:16px}
     .thead th,.tbody td{padding:8px 8px;font-size:12px}
-    .nom .nom-wrap{max-width:28ch}
+    .nom .nom-wrap{max-width:24ch}
   }
 </style>
 </head>
@@ -78,7 +81,7 @@
   <div id="banner" class="banner">
     <div class="bar">
       <h1>Parts Catalog</h1>
-      <input id="q" class="search" placeholder="Search NOMENCLATURE, JSF PART NUMBER, MFR PART NUMBER"/>
+      <input id="q" class="search" placeholder="Search..."/>
       <div class="filters">
         <button class="fbtn" data-filter="EEL">EEL: Yes</button>
         <button class="fbtn" data-filter="SERIAL">SERIAL: Yes</button>
@@ -182,13 +185,12 @@
       return Math.ceil(ctx.measureText(str).width);
     }
 
-    // Compute snug widths that FIT the viewport (no horizontal scroll). Clamp PN then give remainder to NOM.
+    // Compute snug widths within viewport
     function computeAndSetColWidths(){
       const pad = 24;
       const isMobile = window.innerWidth <= 768;
-      const avail = Math.max(240, (wrap.clientWidth || window.innerWidth) - 1); // -1 to avoid tiny overflow
+      const avail = Math.max(240, (wrap.clientWidth || window.innerWidth) - 1);
 
-      // PART NUMBER: measure, but cap to a % of viewport so it never forces horizontal scroll
       let pnMax = meas('PART NUMBER');
       for (const r of rows){
         pnMax = Math.max(pnMax, meas(`JSF: ${(r['JSF PART NUMBER']||'').toString().trim()}`));
@@ -197,25 +199,22 @@
       let PN_W = pnMax + pad;
       const PN_MIN = 160;
       const PN_CAP = isMobile ? Math.floor(avail * 0.58) : Math.min(520, Math.floor(avail * 0.55));
-      PN_W = Math.max(PN_MIN, Math.min(PN_W, PN_CAP)); // never let PN exceed cap; values will ellipsis
+      PN_W = Math.max(PN_MIN, Math.min(PN_W, PN_CAP));
 
-      // NOMENCLATURE gets the rest
       const NOM_MIN = isMobile ? 200 : 240;
       let NOM_W = Math.max(NOM_MIN, avail - PN_W);
 
-      // Apply to header
       cgHead.innerHTML = `
         <col style="width:${NOM_W}px">
         <col style="width:${PN_W}px">
       `;
 
-      // Store for body/search sizing
       computeAndSetColWidths.NOM_W = NOM_W;
       computeAndSetColWidths.PN_W  = PN_W;
       computeAndSetColWidths.AVAIL = avail;
     }
 
-    // Search width = NOM + PN, capped to viewport
+    // Search width = NOM + PN, capped
     function setSearchWidth(){
       const w = Math.min(
         (computeAndSetColWidths.NOM_W||280) + (computeAndSetColWidths.PN_W||240),
@@ -249,8 +248,7 @@
         return true;
       });
       cont.scrollTop = 0;
-      // hard-lock horizontal to avoid jiggle
-      cont.scrollLeft = 0;
+      cont.scrollLeft = 0;                 // enforce no horizontal jiggle
       hdrTable.style.transform = 'translateX(0px)';
       lastStart = -1; lastEnd = -1;
       stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(rows.length)} parts`;
@@ -258,10 +256,10 @@
       hidePop();
     }
 
-    // Vertical scroll virtualization. Also hard-reset any accidental horizontal drift.
+    // Vertical scroll virtualization; kill any accidental horizontal drift
     cont.addEventListener('scroll', ()=>{
       if (cont.scrollLeft !== 0){
-        cont.scrollLeft = 0;                // kill horizontal jiggle
+        cont.scrollLeft = 0;
         hdrTable.style.transform = 'translateX(0px)';
       }
       requestAnimationFrame(()=>{ render(false); hidePop(); });
@@ -313,8 +311,10 @@
         const jsf = (r['JSF PART NUMBER']||'').toString().trim();
         const mfr = (r['MFR PART NUMBER']||'').toString().trim();
         const nom = r['NOMENCLATURE'] ?? '';
+        const globalIndex = i;                        // parity from dataset order
+        const zebraClass = (globalIndex % 2 === 0) ? 'row-a' : 'row-b';
 
-        html += '<tr>';
+        html += `<tr class="${zebraClass}">`;
 
         // NOMENCLATURE (clickable)
         html += `<td class="nom" title="${escapeAttr(String(nom))}">
@@ -336,7 +336,6 @@
       html += `</tbody></table></div>`;
       cont.innerHTML = html;
 
-      // Ensure header never drifts
       hdrTable.style.transform = 'translateX(0px)';
     }
 
