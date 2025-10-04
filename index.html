@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Parts Catalog</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
@@ -17,13 +17,12 @@
   .stats{font-size:13px;opacity:.9;margin-top:8px}
   .table-wrapper{position:fixed;top:240px;left:0;right:0;bottom:0;background:#fff;overflow:hidden}
   .table-header{position:sticky;top:0;background:#f8f9fa;z-index:10;border-bottom:2px solid #dee2e6}
-  .table-header table{width:100%;border-collapse:collapse}
+  .table-header table,.table-content table{width:100%;border-collapse:collapse;table-layout:fixed}
   .table-header th{padding:12px 8px;text-align:left;font-weight:600;white-space:nowrap;font-size:12px;text-transform:uppercase;color:#495057;border:none}
   .table-container{height:calc(100% - 45px);overflow:auto;position:relative}
   .table-spacer{width:100%}
   .table-content{position:absolute;top:0;left:0;right:0}
-  .table-content table{width:100%;border-collapse:collapse;font-size:14px}
-  .table-content td{padding:12px 8px;border-bottom:1px solid #e9ecef;vertical-align:top}
+  .table-content td{padding:12px 8px;border-bottom:1px solid #e9ecef;vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .table-content tr:hover{background:#f8f9fa}
   .loading,.no-results{text-align:center;padding:40px;color:#666}
   .no-results{color:#999}
@@ -38,200 +37,158 @@
 <body>
   <div class="header">
     <h1>Parts Catalog</h1>
-    <input type="text" class="search-box" id="searchBox" placeholder="Search part numbers or nomenclature...">
+    <input id="searchBox" class="search-box" placeholder="Search by NOMENCLATURE, JSF PART NUMBER, MFR PART NUMBER">
     <div class="filters">
       <button class="filter-btn" data-filter="EEL">EEL: Yes</button>
-      <button class="filter-btn" data-filter="SERIALIZED">Serialized: Yes</button>
-      <button class="filter-btn" data-filter="TURN-IN">Turn-in: Yes</button>
+      <button class="filter-btn" data-filter="SERIAL">SERIAL: Yes</button>
+      <button class="filter-btn" data-filter="TURN-IN">TURN-IN: Yes</button>
     </div>
-    <div class="stats" id="stats">Loading data...</div>
+    <div id="stats" class="stats">Loading data...</div>
   </div>
 
   <div class="table-wrapper">
     <div class="table-header">
-      <table><thead><tr id="headerRow"></tr></thead></table>
+      <table>
+        <colgroup id="colgroupHeader"></colgroup>
+        <thead><tr id="headerRow"></tr></thead>
+      </table>
     </div>
-    <div class="table-container" id="tableContainer">
+    <div id="tableContainer" class="table-container">
       <div class="loading">Loading parts catalog...</div>
     </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
+    // Config
+    const CSV_URL = 'https://raw.githubusercontent.com/sailalis/catalog/refs/heads/main/datatest.csv';
+    const COLUMNS = [
+      { label: 'NOMENCLATURE',    key: 'NOMENCLATURE' },
+      { label: 'JSF PART NUMBER', key: 'JSF PART NUMBER' },
+      { label: 'MFR PART NUMBER', key: 'MFR PART NUMBER' },
+      { label: 'SMR',             key: 'SMR' },
+      { label: 'EEL',             key: 'EEL' },
+      { label: 'TURN-IN',         key: 'TURN-IN' },
+      { label: 'SERIAL',          key: 'SERIAL' },
+    ];
+    const COL_PCTS = [34,16,16,8,6,10,10]; // sum=100
+    const ROW_HEIGHT = 45, BUFFER_SIZE = 12, SEARCH_DEBOUNCE_MS = 100;
+
     // State
     let allData = [];
     let filteredData = [];
-    let columns = [];                 // exact CSV header titles, preserved order
-    const activeFilters = new Set();
+    let lastStart = -1, lastEnd = -1;
 
-    // Performance knobs
-    const ROW_HEIGHT = 45;
-    const BUFFER_SIZE = 12;
-    const SEARCH_DEBOUNCE_MS = 120;
-
-    // Cached UI refs
+    // DOM
     const searchBox = document.getElementById('searchBox');
     const tableContainer = document.getElementById('tableContainer');
     const headerRow = document.getElementById('headerRow');
+    const colgroupHeader = document.getElementById('colgroupHeader');
     const stats = document.getElementById('stats');
 
-    // Derived/cache for fast search
-    // Each row gets _needle: concatenated lowercase search string of key fields
-    const NEEDLE_FIELDS_FALLBACK = ['JSF PART NUMBER','MFR PART NUMBER','NOMENCLATURE'];
+    // Header + colgroup
+    colgroupHeader.innerHTML = COL_PCTS.map(p=>`<col style="width:${p}%">`).join('');
+    headerRow.innerHTML = COLUMNS.map(c=>`<th>${c.label}</th>`).join('');
 
-    // Track last rendered window to avoid redundant DOM work while scrolling
-    let lastStartIndex = -1, lastEndIndex = -1;
-
-    // Debounce helper
-    const debounce = (fn, ms) => {
-      let t;
-      return (...args) => {
-        clearTimeout(t);
-        t = setTimeout(() => fn.apply(null, args), ms);
-      };
-    };
-
-    // Load CSV
-    Papa.parse('https://raw.githubusercontent.com/sailalis/catalog/refs/heads/main/datatest.csv', {
+    // CSV load
+    Papa.parse(CSV_URL, {
       download: true,
       header: true,
       skipEmptyLines: true,
-      complete: ({ data, meta }) => {
-        columns = (meta && meta.fields) ? meta.fields.slice() : [];
-        // Render header exactly in CSV order
-        renderHeader(columns);
-
-        // Build search needles
-        const needleFields = pickNeedleFields(columns);
-        allData = data.map(row => {
-          const needle = needleFields.map(f => (row[f] || '')).join(' ').toLowerCase();
-          return { ...row, _needle: needle };
-        });
-
+      complete: ({ data }) => {
+        // Build lowercase index once for search speed
+        allData = data.map(r => ({
+          ...r,
+          _needle: [
+            r['NOMENCLATURE']||'',
+            r['JSF PART NUMBER']||'',
+            r['MFR PART NUMBER']||'',
+          ].join(' ').toLowerCase()
+        }));
         filteredData = allData;
-        updateStats();
-        // Initial render
+        stats.textContent = `Showing ${fmt(filteredData.length)} of ${fmt(allData.length)} parts`;
         tableContainer.innerHTML = '';
-        renderVirtualTable(true);
+        render(true);
       },
-      error: () => {
-        tableContainer.innerHTML = '<div class="no-results">Error loading catalog.</div>';
-      }
+      error: () => tableContainer.innerHTML = '<div class="no-results">Error loading catalog.</div>'
     });
 
-    function pickNeedleFields(cols){
-      // Use CSV columns if available; otherwise fall back
-      const set = new Set(cols);
-      const preferred = NEEDLE_FIELDS_FALLBACK.filter(f => set.has(f));
-      // If CSV has fewer known names, include first 3 columns as a generic fallback
-      if (preferred.length === 0) return cols.slice(0,3);
-      return preferred;
-    }
+    // Filters
+    const activeFilters = new Set();
+    document.querySelectorAll('.filter-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const k = btn.dataset.filter;
+        if (activeFilters.has(k)) { activeFilters.delete(k); btn.classList.remove('active'); }
+        else { activeFilters.add(k); btn.classList.add('active'); }
+        runFilter();
+      });
+    });
 
-    function renderHeader(cols){
-      // Only render the seven known columns if present, and in CSV order
-      const wanted = new Set(['JSF PART NUMBER','MFR PART NUMBER','NOMENCLATURE','SMR CODE','EEL','SERIALIZED','TURN-IN']);
-      const finalCols = cols.filter(c => wanted.has(c));
-      columns = finalCols.length ? finalCols : cols; // if CSV lacks some, show all
-      headerRow.innerHTML = columns.map(c => `<th>${escapeHTML(c)}</th>`).join('');
-    }
+    // Search (debounced)
+    searchBox.addEventListener('input', debounce(runFilter, SEARCH_DEBOUNCE_MS));
 
-    // Search + filters
-    const runFilter = () => {
+    function runFilter(){
       const q = searchBox.value.trim().toLowerCase();
-      if (!q && activeFilters.size === 0) {
+      if (!q && activeFilters.size===0) {
         filteredData = allData;
       } else {
         filteredData = allData.filter(row => {
           if (q && !row._needle.includes(q)) return false;
-          for (const filter of activeFilters) {
-            const v = (row[filter] || '').toString().toLowerCase();
+          for (const f of activeFilters) {
+            const v = (row[f] || '').toString().toLowerCase();
             if (v !== 'yes') return false;
           }
           return true;
         });
       }
-      // Reset scroll + window
       tableContainer.scrollTop = 0;
-      lastStartIndex = -1; lastEndIndex = -1;
-      updateStats();
-      renderVirtualTable(true);
-    };
+      lastStart = -1; lastEnd = -1;
+      stats.textContent = `Showing ${fmt(filteredData.length)} of ${fmt(allData.length)} parts`;
+      render(true);
+    }
 
-    const debouncedFilter = debounce(runFilter, SEARCH_DEBOUNCE_MS);
+    // Virtual scroll
+    tableContainer.addEventListener('scroll', ()=>requestAnimationFrame(()=>render(false)), { passive:true });
+    window.addEventListener('resize', ()=>render(false));
 
-    searchBox.addEventListener('input', debouncedFilter);
-
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const key = btn.dataset.filter;
-        if (activeFilters.has(key)) {
-          activeFilters.delete(key);
-          btn.classList.remove('active');
-        } else {
-          activeFilters.add(key);
-          btn.classList.add('active');
-        }
-        runFilter(); // immediate for filters
-      });
-    });
-
-    // Virtual scrolling
-    tableContainer.addEventListener('scroll', () => {
-      requestAnimationFrame(() => renderVirtualTable(false));
-    }, { passive: true });
-
-    window.addEventListener('resize', () => renderVirtualTable(false));
-
-    function renderVirtualTable(force){
-      if (!filteredData || filteredData.length === 0) {
-        tableContainer.innerHTML = '<div class="no-results">No parts found matching your criteria.</div>';
+    function render(force){
+      if (!filteredData.length) {
+        tableContainer.innerHTML = '<div class="no-results">No parts found.</div>';
         return;
       }
       const viewH = tableContainer.clientHeight;
       const scrollTop = tableContainer.scrollTop;
+      const start = Math.max(0, Math.floor(scrollTop/ROW_HEIGHT) - BUFFER_SIZE);
+      const end   = Math.min(filteredData.length, Math.ceil((scrollTop+viewH)/ROW_HEIGHT) + BUFFER_SIZE);
+      if (!force && start===lastStart && end===lastEnd) return;
+      lastStart = start; lastEnd = end;
 
-      const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_SIZE);
-      const endIndex = Math.min(filteredData.length, Math.ceil((scrollTop + viewH) / ROW_HEIGHT) + BUFFER_SIZE);
+      const totalH = filteredData.length * ROW_HEIGHT;
+      const offsetY = start * ROW_HEIGHT;
 
-      if (!force && startIndex === lastStartIndex && endIndex === lastEndIndex) return;
-      lastStartIndex = startIndex; lastEndIndex = endIndex;
-
-      const totalHeight = filteredData.length * ROW_HEIGHT;
-      const offsetY = startIndex * ROW_HEIGHT;
-
-      let html = `<div class="table-spacer" style="height:${totalHeight}px;"></div>`;
-      html += `<div class="table-content" style="transform:translateY(${offsetY}px)"><table><tbody>`;
-
-      // Build only visible rows
-      for (let i = startIndex; i < endIndex; i++) {
+      let html = `<div class="table-spacer" style="height:${totalH}px;"></div>`;
+      html += `<div class="table-content" style="transform:translateY(${offsetY}px)">
+        <table>
+          <colgroup>${COL_PCTS.map(p=>`<col style="width:${p}%">`).join('')}</colgroup>
+          <tbody>`;
+      for (let i=start;i<end;i++){
         const row = filteredData[i];
         html += '<tr>';
-        for (const col of columns) {
-          const v = row[col] ?? '';
-          html += `<td>${escapeHTML(String(v))}</td>`;
+        for (const c of COLUMNS){
+          const v = row[c.key] ?? '';
+          html += `<td title="${escapeAttr(String(v))}">${escapeHTML(String(v))}</td>`;
         }
         html += '</tr>';
       }
-      html += '</tbody></table></div>';
-
+      html += `</tbody></table></div>`;
       tableContainer.innerHTML = html;
     }
 
-    function updateStats(){
-      stats.textContent = `Showing ${numberFmt(filteredData.length)} of ${numberFmt(allData.length)} parts`;
-    }
-
     // Utils
-    function numberFmt(n){ return (n ?? 0).toLocaleString(); }
-    function escapeHTML(s){
-      return s
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;')
-        .replace(/'/g,'&#39;');
-    }
+    function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
+    function escapeHTML(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+    function escapeAttr(s){ return escapeHTML(s).replace(/\n/g,' '); }
+    function fmt(n){ return (n??0).toLocaleString(); }
   </script>
 </body>
 </html>
