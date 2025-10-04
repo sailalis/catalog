@@ -1,3 +1,6 @@
+Yes. Full centered layout below.
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,44 +13,44 @@
 
   /* Banner */
   .banner{position:fixed;top:0;left:0;right:0;z-index:100;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
-  .bar{display:grid;grid-template-columns:1fr;gap:10px;padding:12px 14px}
-  .bar h1{font-size:18px;font-weight:700;letter-spacing:.2px}
+  .bar{display:grid;grid-template-columns:1fr;gap:10px;padding:12px 14px;place-items:center}
+  .bar h1{font-size:22px;font-weight:700;letter-spacing:.2px;text-align:center}
   .search{
     padding:10px 12px;border:none;border-radius:8px;font-size:15px;background:#fff;
     box-shadow:0 2px 4px rgba(0,0,0,.1);max-width:100%;
-    justify-self:start; /* prevent grid stretch */
+    justify-self:center
   }
   .search:focus{outline:none;box-shadow:0 4px 8px rgba(0,0,0,.15)}
-  .filters{display:flex;gap:8px;flex-wrap:wrap}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
   .fbtn{padding:6px 12px;border:2px solid rgba(255,255,255,.55);border-radius:18px;background:transparent;color:#fff;font-size:13px;cursor:pointer}
   .fbtn.active{background:#fff;color:#667eea;border-color:#fff}
-  .stats{font-size:12px;opacity:.95}
+  .stats{font-size:12px;opacity:.95;text-align:center}
 
   /* Table area flush under banner */
   .wrap{position:fixed;left:0;right:0;bottom:0;background:#fff;overflow:hidden}
 
-  /* Header + body */
+  /* Header centered */
   .thead{position:sticky;top:0;background:#f8f9fa;border-bottom:2px solid #dee2e6;z-index:10;overflow:hidden}
-  .thead table{width:max-content;border-collapse:collapse;table-layout:auto}
+  .thead table{width:max-content;border-collapse:collapse;table-layout:auto;margin:0 auto}
   .thead th{padding:10px 12px;text-align:left;font-weight:700;white-space:nowrap;font-size:12px;text-transform:uppercase;color:#475569;border:none}
 
   .container{
     height:100%;
     overflow-y:auto;   /* vertical only */
-    overflow-x:hidden; /* lock horizontal to stop jiggle */
+    overflow-x:hidden; /* no horizontal jiggle */
     position:relative;
     touch-action:pan-y;
     overscroll-behavior-x:none;
     -webkit-overflow-scrolling:touch;
   }
 
-  /* Virtual body */
+  /* Virtual body centered */
   .spacer{width:100%}
   .tbody-wrap{
-    position:absolute;top:0;left:0;will-change:transform;contain:layout paint style;
-    transform:translate3d(0,0,0);
+    position:absolute;top:0;left:0;width:100%;
+    will-change:transform;contain:layout paint style;transform:translate3d(0,0,0)
   }
-  #bodyTable{width:max-content;border-collapse:collapse;table-layout:auto;contain:content}
+  #bodyTable{width:max-content;border-collapse:collapse;table-layout:auto;margin:0 auto;contain:content}
   #bodyTable td{padding:10px 12px;border-bottom:1px solid #e9ecef;vertical-align:middle;white-space:nowrap}
   #bodyTable tr.row-a{background:#ffffff}
   #bodyTable tr.row-b{background:#f6f7fb}
@@ -56,19 +59,15 @@
 
   /* Cells */
   .nom{white-space:normal}
-  .nom a{color:#0b1f44;text-decoration:none}
-  .nom a:visited{color:#0b1f44}
-  .nom a:hover{text-decoration:underline}
+  .nom a{color:#173d86;text-decoration:underline}
+  .nom a:visited{color:#173d86}
+  .nom a:hover{color:#136270}text-decoration:underline}
   .nom .nom-wrap{
-    max-width:28ch;         /* conservative width; wraps only if needed */
-    overflow:hidden;
-    display:-webkit-box;
-    -webkit-line-clamp:2;   /* fixed height for virtualization */
-    -webkit-box-orient:vertical;
+    max-width:28ch;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical
   }
   .pn{display:grid;grid-template-columns:auto 1fr;column-gap:6px;row-gap:3px}
   .pn .tag{font-size:11px;color:#64748b;white-space:nowrap}
-  .pn .val{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* never wrap part numbers */
+  .pn .val{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   /* Popover */
   .pop{position:fixed;min-width:220px;max-width:300px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:12px;z-index:1000}
@@ -81,7 +80,7 @@
 
   @media (max-width:768px){
     .bar{gap:8px;padding:10px 12px}
-    .bar h1{font-size:16px}
+    .bar h1{font-size:20px}
     .thead th,#bodyTable td{padding:8px 8px;font-size:12px}
     .nom .nom-wrap{max-width:24ch}
   }
@@ -123,7 +122,7 @@
     // CONFIG
     const CSV_URL = 'https://raw.githubusercontent.com/sailalis/catalog/refs/heads/main/datatest.csv';
 
-    // Visible: NOMENCLATURE (clickable) | PART NUMBER (stacked)
+    // Visible: NOMENCLATURE | PART NUMBER
     const COLS = [
       { label: 'NOMENCLATURE', key: 'NOMENCLATURE' },
       { label: 'PART NUMBER',  key: '_PARTNUM_' },
@@ -138,8 +137,7 @@
     // STATE
     let rows = [], rowsById = new Map(), filtered = [];
     let lastStart = -1, lastEnd = -1;
-    let pool = []; // recycled row nodes
-    let poolCount = 0;
+    let pool = [], poolCount = 0;
 
     // DOM
     const banner = document.getElementById('banner');
@@ -154,7 +152,7 @@
     // Header
     hdr.innerHTML = COLS.map(c=>`<th>${c.label}</th>`).join('');
 
-    // Flush table under banner
+    // Place table under banner
     function placeTable(){ wrap.style.top = banner.getBoundingClientRect().height + 'px'; }
     placeTable();
 
@@ -162,7 +160,7 @@
       placeTable();
       computeAndSetColWidths();
       setSearchWidth();
-      rebuildPool(); // pool depends on container height
+      rebuildPool();
       render(true);
     });
 
@@ -182,137 +180,104 @@
 
         computeAndSetColWidths();
         setSearchWidth();
-        mountBodyTable();   // build DOM once
-        rebuildPool();      // create row nodes once
+        mountBodyTable();
+        rebuildPool();
         render(true);
       },
       error: ()=>{ cont.innerHTML = '<div class="nores">Error loading catalog.</div>'; }
     });
 
-    // Build body table shell once
+    // Body table shell
     let spacerEl, tbodyWrap, bodyTable, cgBody, rowsTbody;
     function mountBodyTable(){
       cont.innerHTML = '';
-      spacerEl = document.createElement('div');
-      spacerEl.className = 'spacer';
-      tbodyWrap = document.createElement('div');
-      tbodyWrap.className = 'tbody-wrap';
-      bodyTable = document.createElement('table');
-      bodyTable.id = 'bodyTable';
+      spacerEl = document.createElement('div'); spacerEl.className = 'spacer';
+      tbodyWrap = document.createElement('div'); tbodyWrap.className = 'tbody-wrap';
+      bodyTable = document.createElement('table'); bodyTable.id = 'bodyTable';
       cgBody = document.createElement('colgroup');
       rowsTbody = document.createElement('tbody');
-      bodyTable.appendChild(cgBody);
-      bodyTable.appendChild(rowsTbody);
+      bodyTable.append(cgBody, rowsTbody);
       tbodyWrap.appendChild(bodyTable);
-      cont.appendChild(spacerEl);
-      cont.appendChild(tbodyWrap);
+      cont.append(spacerEl, tbodyWrap);
       syncBodyColgroup();
     }
 
-    // Create or resize the row pool
+    // Pool
     function rebuildPool(){
       if (!rowsTbody) return;
       const viewH = cont.clientHeight || 600;
       const desired = Math.min(filtered.length, Math.ceil(viewH/ROW_H) + BUFFER*2);
-      // shrink or grow pool
       if (desired === poolCount) return;
       const frag = document.createDocumentFragment();
-      // Remove extras
-      while (pool.length > desired) {
-        const node = pool.pop();
-        rowsTbody.removeChild(node.tr);
-      }
-      // Add missing
-      while (pool.length < desired) {
-        const node = createRowNode();
-        pool.push(node);
-        frag.appendChild(node.tr);
-      }
+      while (pool.length > desired) { rowsTbody.removeChild(pool.pop().tr); }
+      while (pool.length < desired) { const n = createRowNode(); pool.push(n); frag.appendChild(n.tr); }
       if (frag.childNodes.length) rowsTbody.appendChild(frag);
       poolCount = desired;
-      lastStart = -1; lastEnd = -1; // force repaint
+      lastStart = -1; lastEnd = -1;
     }
 
-    // Create one TR with references
     function createRowNode(){
       const tr = document.createElement('tr');
-      const tdNom = document.createElement('td');
-      tdNom.className = 'nom';
-      const a = document.createElement('a');
-      a.href = '#';
-      a.className = 'nom-link';
-      const nomWrap = document.createElement('div');
-      nomWrap.className = 'nom-wrap';
-      a.appendChild(nomWrap);
-      tdNom.appendChild(a);
+      const tdNom = document.createElement('td'); tdNom.className = 'nom';
+      const a = document.createElement('a'); a.href='#'; a.className='nom-link';
+      const nomWrap = document.createElement('div'); nomWrap.className = 'nom-wrap';
+      a.appendChild(nomWrap); tdNom.appendChild(a);
 
       const tdPn = document.createElement('td');
-      const pnBox = document.createElement('div');
-      pnBox.className = 'pn';
-      const tag1 = document.createElement('div'); tag1.className = 'tag'; tag1.textContent = 'JSF:';
-      const val1 = document.createElement('div'); val1.className = 'val';
-      const tag2 = document.createElement('div'); tag2.className = 'tag'; tag2.textContent = 'MFR:';
-      const val2 = document.createElement('div'); val2.className = 'val';
-      pnBox.append(tag1,val1,tag2,val2);
-      tdPn.appendChild(pnBox);
+      const pnBox = document.createElement('div'); pnBox.className='pn';
+      const tag1 = document.createElement('div'); tag1.className='tag'; tag1.textContent='JSF:';
+      const val1 = document.createElement('div'); val1.className='val';
+      const tag2 = document.createElement('div'); tag2.className='tag'; tag2.textContent='MFR:';
+      const val2 = document.createElement('div'); val2.className='val';
+      pnBox.append(tag1,val1,tag2,val2); tdPn.appendChild(pnBox);
 
       tr.append(tdNom, tdPn);
-      return { tr, tdNom, a, nomWrap, val1, val2 };
+      return { tr, a, nomWrap, val1, val2 };
     }
 
-    // Measure text width
+    // Measure
     function meas(str, font='14px -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif'){
       const c = meas.canvas || (meas.canvas = document.createElement('canvas'));
-      const ctx = c.getContext('2d');
-      ctx.font = font;
+      const ctx = c.getContext('2d'); ctx.font = font;
       return Math.ceil(ctx.measureText(str).width);
     }
 
-    // Compute snug widths; keep desktop NOM from stretching
+    // Column widths (also compute full table width)
     function computeAndSetColWidths(){
       const pad = 24;
       const isMobile = window.innerWidth <= 768;
       const avail = Math.max(240, (wrap.clientWidth || window.innerWidth) - 1);
 
-      // PN width
+      // PN
       let pnMax = meas('PART NUMBER');
       for (const r of rows){
         pnMax = Math.max(pnMax, meas(`JSF: ${(r['JSF PART NUMBER']||'').toString().trim()}`));
         pnMax = Math.max(pnMax, meas(`MFR: ${(r['MFR PART NUMBER']||'').toString().trim()}`));
       }
       const PN_MIN = 160;
-      const PN_MAX_ALLOWED = isMobile
-        ? Math.floor(avail * 0.58)
-        : Math.min(520, Math.floor(avail * 0.65));
+      const PN_MAX_ALLOWED = isMobile ? Math.floor(avail*0.58) : Math.min(520, Math.floor(avail*0.65));
       let PN_W = Math.max(PN_MIN, Math.min(pnMax + pad, PN_MAX_ALLOWED));
 
-      // NOM width
+      // NOM
       const NOM_MIN = isMobile ? 200 : 280;
       const NOM_MAX = isMobile ? 280 : 420;
       let NOM_W = Math.min(Math.max(NOM_MIN, avail - PN_W), NOM_MAX);
 
       // Header colgroup
-      cgHead.innerHTML = `
-        <col style="width:${NOM_W}px">
-        <col style="width:${PN_W}px">
-      `;
+      cgHead.innerHTML = `<col style="width:${NOM_W}px"><col style="width:${PN_W}px">`;
       // Body colgroup
       if (cgBody) cgBody.innerHTML = cgHead.innerHTML;
 
       computeAndSetColWidths.NOM_W = NOM_W;
       computeAndSetColWidths.PN_W  = PN_W;
+      computeAndSetColWidths.TBL_W = NOM_W + PN_W;
       computeAndSetColWidths.AVAIL = avail;
     }
-    function syncBodyColgroup(){
-      if (!cgBody || !cgHead) return;
-      cgBody.innerHTML = cgHead.innerHTML;
-    }
+    function syncBodyColgroup(){ if (cgBody && cgHead) cgBody.innerHTML = cgHead.innerHTML; }
 
-    // Search width ≈ NOM + 40px
+    // Search width = exact table width, centered
     function setSearchWidth(){
-      const nom = computeAndSetColWidths.NOM_W || 280;
-      const avail = computeAndSetColWidths.AVAIL || (wrap.clientWidth || window.innerWidth);
-      const w = Math.min(nom + 40, avail);
+      const w = Math.min(computeAndSetColWidths.TBL_W || 520, computeAndSetColWidths.AVAIL || (wrap.clientWidth || window.innerWidth));
       q.style.width = Math.max(220, w) + 'px';
     }
 
@@ -334,10 +299,7 @@
       const term = q.value.trim().toLowerCase();
       filtered = rows.filter(r=>{
         if (term && !r._needle.includes(term)) return false;
-        for (const f of activeFilters){
-          const v = (r[f]||'').toString().toLowerCase();
-          if (v !== 'yes') return false;
-        }
+        for (const f of activeFilters){ if ((r[f]||'').toString().toLowerCase() !== 'yes') return false; }
         return true;
       });
       cont.scrollTop = 0;
@@ -349,20 +311,16 @@
       hidePop();
     }
 
-    // Smooth scroll handling with single rAF
+    // Smooth scroll rAF
     let ticking = false;
-    cont.addEventListener('scroll', ()=> {
+    cont.addEventListener('scroll', ()=>{
       if (!ticking){
         ticking = true;
-        requestAnimationFrame(()=>{
-          render(false);
-          hidePop();
-          ticking = false;
-        });
+        requestAnimationFrame(()=>{ render(false); hidePop(); ticking = false; });
       }
     }, {passive:true});
 
-    // Delegate: click NOMENCLATURE for popover
+    // Click NOMENCLATURE for popover
     document.addEventListener('click', (e)=>{
       const a = e.target.closest('a.nom-link');
       if (a){
@@ -377,17 +335,14 @@
     document.addEventListener('keydown', e=>{ if (e.key === 'Escape') hidePop(); });
 
     function render(force){
-      if (!filtered.length){
-        cont.innerHTML = '<div class="nores">No parts found.</div>';
-        return;
-      }
+      if (!filtered.length){ cont.innerHTML = '<div class="nores">No parts found.</div>'; return; }
+
       const viewH = cont.clientHeight;
       const st = cont.scrollTop;
       const start = Math.max(0, Math.floor(st/ROW_H) - BUFFER);
       const end   = Math.min(filtered.length, Math.ceil((st+viewH)/ROW_H) + BUFFER);
 
       if (!force && start===lastStart && end===lastEnd){
-        // still move track
         const offsetY = start * ROW_H;
         tbodyWrap.style.transform = `translate3d(0,${offsetY}px,0)`;
         return;
@@ -399,7 +354,6 @@
       spacerEl.style.height = totalH + 'px';
       tbodyWrap.style.transform = `translate3d(0,${offsetY}px,0)`;
 
-      // Update pool rows
       const visible = Math.min(poolCount, end - start);
       for (let k=0; k<visible; k++){
         const idx = start + k;
@@ -417,24 +371,17 @@
         node.val2.textContent = mfr;
         node.tr.title = `JSF: ${jsf} | MFR: ${mfr}`;
         node.tr.className = (idx % 2 === 0) ? 'row-a' : 'row-b';
+        node.tr.style.display = '';
       }
-      // Hide any extra pooled rows when near end
-      for (let k=visible; k<poolCount; k++){
-        pool[k].tr.style.display = 'none';
-      }
-      for (let k=0; k<visible; k++){
-        pool[k].tr.style.display = '';
-      }
+      for (let k=visible; k<poolCount; k++){ pool[k].tr.style.display = 'none'; }
     }
 
-    // Popover: SMR + EEL + TURN-IN + SERIAL
+    // Popover
     function showPop(anchor,row){
       pop.innerHTML = `
         <button class="x" aria-label="Close" onclick="(${hidePop.toString()})()">×</button>
         <h4>Details</h4>
-        ${HIDDEN_KEYS.map(k=>`
-          <div class="kv"><div class="k">${k}</div><div class="v">${escapeHTML(String(row[k]??''))}</div></div>
-        `).join('')}
+        ${HIDDEN_KEYS.map(k=>`<div class="kv"><div class="k">${k}</div><div class="v">${escapeHTML(String(row[k]??''))}</div></div>`).join('')}
       `;
       pop.style.display='block';
 
