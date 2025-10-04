@@ -2,144 +2,157 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Parts Catalog</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;background:#f5f5f5;color:#333;overflow:hidden}
-  .header{position:fixed;top:0;left:0;right:0;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:100}
-  h1{font-size:24px;margin-bottom:16px;font-weight:600}
-  .search-box{width:100%;padding:12px 16px;border:none;border-radius:8px;font-size:16px;margin-bottom:12px;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.1)}
-  .search-box:focus{outline:none;box-shadow:0 4px 8px rgba(0,0,0,.15)}
-  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-  .filter-btn{padding:8px 16px;border:2px solid rgba(255,255,255,.5);border-radius:20px;background:transparent;color:#fff;font-size:14px;cursor:pointer;transition:.2s;font-weight:500}
-  .filter-btn.active{background:#fff;color:#667eea;border-color:#fff}
-  .stats{font-size:13px;opacity:.9;margin-top:8px}
-  .table-wrapper{position:fixed;top:240px;left:0;right:0;bottom:0;background:#fff;overflow:hidden}
-  .table-header{position:sticky;top:0;background:#f8f9fa;z-index:10;border-bottom:2px solid #dee2e6}
-  .table-header table,.table-content table{width:100%;border-collapse:collapse;table-layout:fixed}
-  .table-header th{padding:12px 8px;text-align:left;font-weight:600;white-space:nowrap;font-size:12px;text-transform:uppercase;color:#495057;border:none}
-  .table-container{height:calc(100% - 45px);overflow:auto;position:relative}
-  .table-spacer{width:100%}
-  .table-content{position:absolute;top:0;left:0;right:0}
-  .table-content td{padding:12px 8px;border-bottom:1px solid #e9ecef;vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .table-content tr:hover{background:#f8f9fa}
-  .loading,.no-results{text-align:center;padding:40px;color:#666}
-  .no-results{color:#999}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;background:#f5f5f5;color:#0f172a;overflow:hidden}
+  .banner{position:fixed;top:0;left:0;right:0;z-index:100;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+  .bar{display:grid;grid-template-columns:1fr;gap:10px;padding:14px 16px}
+  .bar h1{font-size:20px;font-weight:700;letter-spacing:.3px}
+  .search{width:100%;padding:10px 12px;border:none;border-radius:8px;font-size:15px;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.1)}
+  .search:focus{outline:none;box-shadow:0 4px 8px rgba(0,0,0,.15)}
+  .filters{display:flex;gap:8px;flex-wrap:wrap}
+  .fbtn{padding:6px 12px;border:2px solid rgba(255,255,255,.55);border-radius:18px;background:transparent;color:#fff;font-size:13px;cursor:pointer}
+  .fbtn.active{background:#fff;color:#667eea;border-color:#fff}
+  .stats{font-size:12px;opacity:.95}
 
-  .details-btn{padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:13px}
-  .details-btn:hover{background:#f1f5f9}
+  .wrap{position:fixed;left:0;right:0;bottom:0;background:#fff;overflow:hidden} /* top is set by JS to sit right under banner */
+  .thead{position:sticky;top:0;background:#f8f9fa;border-bottom:2px solid #dee2e6;z-index:10}
+  .thead table,.tbody table{width:100%;border-collapse:collapse;table-layout:fixed}
+  .thead th{padding:10px 8px;text-align:left;font-weight:700;white-space:nowrap;font-size:12px;text-transform:uppercase;color:#475569;border:none}
 
-  /* Popover */
-  .popover{position:fixed;min-width:220px;max-width:280px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:12px;z-index:1000}
-  .popover h4{font-size:13px;margin-bottom:8px;color:#334155}
+  .container{height:100%;overflow:auto;position:relative}
+  .spacer{width:100%}
+  .tbody{position:absolute;top:0;left:0;right:0}
+  .tbody td{padding:10px 8px;border-bottom:1px solid #e9ecef;vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tbody tr:hover{background:#f8fafc}
+  .nores,.loading{text-align:center;padding:28px;color:#64748b}
+
+  .pn{display:flex;flex-direction:column;gap:3px;white-space:normal}
+  .pn .tag{font-size:11px;color:#64748b}
+  .pn .val{font-weight:600}
+
+  .btn{padding:6px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;font-size:13px;cursor:pointer}
+  .btn:hover{background:#f1f5f9}
+
+  /* popover */
+  .pop{position:fixed;min-width:220px;max-width:280px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:12px;z-index:1000}
+  .pop h4{font-size:13px;margin-bottom:8px;color:#334155}
   .kv{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:6px 0;border-bottom:1px dashed #e2e8f0}
   .kv:last-child{border-bottom:none}
   .k{color:#64748b}
-  .v{color:#0f172a;font-weight:600}
-  .close-pop{position:absolute;top:6px;right:8px;border:none;background:transparent;font-size:18px;line-height:1;cursor:pointer;color:#64748b}
+  .v{font-weight:600}
+  .x{position:absolute;top:6px;right:8px;border:none;background:transparent;font-size:18px;cursor:pointer;color:#64748b}
+
   @media (max-width:768px){
-    .table-header th,.table-content td{padding:8px 4px;font-size:12px}
-    h1{font-size:20px}
-    .filter-btn{font-size:12px;padding:6px 12px}
-    .table-wrapper{top:260px}
+    .bar{gap:8px;padding:12px}
+    .bar h1{font-size:18px}
+    .thead th,.tbody td{padding:8px 6px;font-size:12px}
   }
 </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Parts Catalog</h1>
-    <input id="searchBox" class="search-box" placeholder="Search by NOMENCLATURE, JSF PART NUMBER, MFR PART NUMBER">
-    <div class="filters">
-      <button class="filter-btn" data-filter="EEL">EEL: Yes</button>
-      <button class="filter-btn" data-filter="SERIAL">SERIAL: Yes</button>
-      <button class="filter-btn" data-filter="TURN-IN">TURN-IN: Yes</button>
+  <!-- Banner -->
+  <div id="banner" class="banner">
+    <div class="bar">
+      <h1>Parts Catalog</h1>
+      <input id="q" class="search" placeholder="Search NOMENCLATURE, JSF PART NUMBER, MFR PART NUMBER"/>
+      <div class="filters">
+        <button class="fbtn" data-filter="EEL">EEL: Yes</button>
+        <button class="fbtn" data-filter="SERIAL">SERIAL: Yes</button>
+        <button class="fbtn" data-filter="TURN-IN">TURN-IN: Yes</button>
+      </div>
+      <div id="stats" class="stats">Loading…</div>
     </div>
-    <div id="stats" class="stats">Loading data...</div>
   </div>
 
-  <div class="table-wrapper">
-    <div class="table-header">
+  <!-- Table area sits flush under banner (top set in JS) -->
+  <div id="wrap" class="wrap">
+    <div class="thead">
       <table>
-        <colgroup id="colgroupHeader"></colgroup>
-        <thead><tr id="headerRow"></tr></thead>
+        <colgroup id="cgHead"></colgroup>
+        <thead><tr id="hdr"></tr></thead>
       </table>
     </div>
-    <div id="tableContainer" class="table-container">
-      <div class="loading">Loading parts catalog...</div>
+    <div id="cont" class="container">
+      <div class="loading">Loading parts catalog…</div>
     </div>
   </div>
 
-  <div id="detailsPopover" class="popover" style="display:none"></div>
+  <!-- Row popover -->
+  <div id="pop" class="pop" style="display:none"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <script>
-    // Config
+    // CONFIG
     const CSV_URL = 'https://raw.githubusercontent.com/sailalis/catalog/refs/heads/main/datatest.csv';
-
-    // Visible columns (EEL, TURN-IN, SERIAL are hidden and shown via Details)
-    const COLUMNS = [
-      { label: 'NOMENCLATURE',    key: 'NOMENCLATURE' },
-      { label: 'JSF PART NUMBER', key: 'JSF PART NUMBER' },
-      { label: 'MFR PART NUMBER', key: 'MFR PART NUMBER' },
-      { label: 'SMR',             key: 'SMR' },
-      { label: 'DETAILS',         key: '_DETAILS_' }, // virtual button column
+    // Visible columns: NOMENCLATURE | PART NUMBER (stacked) | SMR | DETAILS
+    const COLS = [
+      { label: 'NOMENCLATURE', key: 'NOMENCLATURE' },
+      { label: 'PART NUMBER',  key: '_PARTNUM_' }, // virtual stacked cell (JSF + MFR)
+      { label: 'SMR',          key: 'SMR' },
+      { label: 'DETAILS',      key: '_DETAILS_' }, // button
     ];
+    // Hidden fields shown in popover
     const HIDDEN_KEYS = ['EEL','TURN-IN','SERIAL'];
+    // Column widths (sum 100)
+    const COL_PCTS = [42,30,10,18];
 
-    // Widths for visible columns
-    const COL_PCTS = [38,16,16,10,20]; // sum=100
+    // PERF
+    const ROW_H = 56, BUFFER = 10, DEBOUNCE_MS = 90;
 
-    // Perf
-    const ROW_HEIGHT = 45, BUFFER = 12, DEBOUNCE_MS = 100;
-
-    // State
-    let allData = [];          // rows with _id and _needle
-    let idToRow = new Map();   // _id -> row
+    // STATE
+    let rows = [];
+    let rowsById = new Map();
     let filtered = [];
     let lastStart = -1, lastEnd = -1;
 
     // DOM
-    const searchBox = document.getElementById('searchBox');
-    const tableContainer = document.getElementById('tableContainer');
-    const headerRow = document.getElementById('headerRow');
-    const colgroupHeader = document.getElementById('colgroupHeader');
+    const banner = document.getElementById('banner');
+    const wrap = document.getElementById('wrap');
+    const q = document.getElementById('q');
     const stats = document.getElementById('stats');
-    const pop = document.getElementById('detailsPopover');
+    const cont = document.getElementById('cont');
+    const hdr = document.getElementById('hdr');
+    const cgHead = document.getElementById('cgHead');
+    const pop = document.getElementById('pop');
 
-    // Header + widths
-    colgroupHeader.innerHTML = COL_PCTS.map(p=>`<col style="width:${p}%">`).join('');
-    headerRow.innerHTML = COLUMNS.map(c=>`<th>${c.label}</th>`).join('');
+    // Build header and widths
+    cgHead.innerHTML = COL_PCTS.map(p=>`<col style="width:${p}%">`).join('');
+    hdr.innerHTML = COLS.map(c=>`<th>${c.label}</th>`).join('');
+
+    // Make table area sit exactly below banner
+    function placeTable(){
+      const h = banner.getBoundingClientRect().height;
+      wrap.style.top = h + 'px';
+    }
+    placeTable();
+    window.addEventListener('resize', placeTable);
 
     // Load CSV
     Papa.parse(CSV_URL, {
       download:true, header:true, skipEmptyLines:true,
       complete: ({data}) => {
-        allData = data.map((r, idx) => {
-          const row = {
-            ...r,
-            _id: idx, // stable id
-            _needle: [
-              r['NOMENCLATURE']||'',
-              r['JSF PART NUMBER']||'',
-              r['MFR PART NUMBER']||'',
-            ].join(' ').toLowerCase()
-          };
-          idToRow.set(row._id, row);
+        rows = data.map((r,i)=>{
+          const needle = [r['NOMENCLATURE']||'', r['JSF PART NUMBER']||'', r['MFR PART NUMBER']||'']
+            .join(' ').toLowerCase();
+          const row = {...r, _id:i, _needle:needle};
+          rowsById.set(i,row);
           return row;
         });
-        filtered = allData;
-        stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(allData.length)} parts`;
-        tableContainer.innerHTML = '';
+        filtered = rows;
+        stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(rows.length)} parts`;
+        cont.innerHTML = '';
         render(true);
       },
-      error: () => tableContainer.innerHTML = '<div class="no-results">Error loading catalog.</div>'
+      error: ()=>{ cont.innerHTML = '<div class="nores">Error loading catalog.</div>'; }
     });
 
     // Filters
     const activeFilters = new Set();
-    document.querySelectorAll('.filter-btn').forEach(btn=>{
-      btn.addEventListener('click',()=>{
+    document.querySelectorAll('.fbtn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
         const k = btn.dataset.filter;
         if (activeFilters.has(k)) { activeFilters.delete(k); btn.classList.remove('active'); }
         else { activeFilters.add(k); btn.classList.add('active'); }
@@ -148,118 +161,114 @@
     });
 
     // Search
-    searchBox.addEventListener('input', debounce(runFilter, DEBOUNCE_MS));
+    q.addEventListener('input', debounce(runFilter, DEBOUNCE_MS));
 
     function runFilter(){
-      const q = searchBox.value.trim().toLowerCase();
-      filtered = allData.filter(row => {
-        if (q && !row._needle.includes(q)) return false;
-        for (const f of activeFilters) {
-          const v = (row[f] || '').toString().toLowerCase();
+      const term = q.value.trim().toLowerCase();
+      filtered = rows.filter(r=>{
+        if (term && !r._needle.includes(term)) return false;
+        for (const f of activeFilters){
+          const v = (r[f]||'').toString().toLowerCase();
           if (v !== 'yes') return false;
         }
         return true;
       });
-      tableContainer.scrollTop = 0;
+      cont.scrollTop = 0;
       lastStart = -1; lastEnd = -1;
-      stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(allData.length)} parts`;
+      stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(rows.length)} parts`;
       render(true);
-      hidePopover();
+      hidePop();
     }
 
     // Virtual scroll
-    tableContainer.addEventListener('scroll', ()=>requestAnimationFrame(()=>{ render(false); hidePopover(); }), { passive:true });
-    window.addEventListener('resize', ()=>{ render(false); hidePopover(); });
+    cont.addEventListener('scroll', ()=>requestAnimationFrame(()=>{ render(false); hidePop(); }), {passive:true});
+    window.addEventListener('resize', ()=>{ render(false); hidePop(); });
 
-    // Event delegation for "View" buttons
+    // Delegate clicks for Details
     document.addEventListener('click', (e)=>{
-      const btn = e.target.closest('button.details-btn');
-      if (btn) {
+      const btn = e.target.closest('button.btn[data-id]');
+      if (btn){
         const id = Number(btn.dataset.id);
-        const row = idToRow.get(id);
-        if (row) showPopoverForRow(btn, row);
+        const row = rowsById.get(id);
+        if (row) showPop(btn,row);
         return;
       }
-      // Dismiss if clicking outside popover
-      if (pop.style.display === 'block' && !pop.contains(e.target)) hidePopover();
+      if (pop.style.display === 'block' && !pop.contains(e.target)) hidePop();
     });
-
-    document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') hidePopover(); });
+    document.addEventListener('keydown', e=>{ if (e.key === 'Escape') hidePop(); });
 
     function render(force){
-      if (!filtered.length) {
-        tableContainer.innerHTML = '<div class="no-results">No parts found.</div>';
+      if (!filtered.length){
+        cont.innerHTML = '<div class="nores">No parts found.</div>';
         return;
       }
-      const viewH = tableContainer.clientHeight;
-      const scrollTop = tableContainer.scrollTop;
-      const start = Math.max(0, Math.floor(scrollTop/ROW_HEIGHT) - BUFFER);
-      const end   = Math.min(filtered.length, Math.ceil((scrollTop+viewH)/ROW_HEIGHT) + BUFFER);
+      const viewH = cont.clientHeight;
+      const st = cont.scrollTop;
+      const start = Math.max(0, Math.floor(st/ROW_H) - BUFFER);
+      const end   = Math.min(filtered.length, Math.ceil((st+viewH)/ROW_H) + BUFFER);
       if (!force && start===lastStart && end===lastEnd) return;
       lastStart = start; lastEnd = end;
 
-      const totalH = filtered.length * ROW_HEIGHT;
-      const offsetY = start * ROW_HEIGHT;
+      const totalH = filtered.length * ROW_H;
+      const offsetY = start * ROW_H;
 
-      let html = `<div class="table-spacer" style="height:${totalH}px;"></div>`;
-      html += `<div class="table-content" style="transform:translateY(${offsetY}px)">
+      let html = `<div class="spacer" style="height:${totalH}px;"></div>`;
+      html += `<div class="tbody" style="transform:translateY(${offsetY}px)">
         <table>
           <colgroup>${COL_PCTS.map(p=>`<col style="width:${p}%">`).join('')}</colgroup>
           <tbody>`;
 
       for (let i=start;i<end;i++){
-        const row = filtered[i];
+        const r = filtered[i];
+        const jsf = (r['JSF PART NUMBER']||'').toString().trim();
+        const mfr = (r['MFR PART NUMBER']||'').toString().trim();
+
         html += '<tr>';
-        for (const c of COLUMNS){
-          if (c.key === '_DETAILS_') {
-            html += `<td><button class="details-btn" data-id="${row._id}" aria-label="View details">View</button></td>`;
+        for (const c of COLS){
+          if (c.key === '_PARTNUM_'){
+            html += `<td title="${escapeAttr(`JSF: ${jsf} | MFR: ${mfr}`)}">
+              <div class="pn">
+                <div class="tag">JSF:</div><div class="val">${escapeHTML(jsf)}</div>
+                <div class="tag">MFR:</div><div class="val">${escapeHTML(mfr)}</div>
+              </div>
+            </td>`;
+          } else if (c.key === '_DETAILS_'){
+            html += `<td><button class="btn" data-id="${r._id}" aria-label="View details">View</button></td>`;
           } else {
-            const v = row[c.key] ?? '';
+            const v = r[c.key] ?? '';
             html += `<td title="${escapeAttr(String(v))}">${escapeHTML(String(v))}</td>`;
           }
         }
         html += '</tr>';
       }
       html += `</tbody></table></div>`;
-      tableContainer.innerHTML = html;
+      cont.innerHTML = html;
     }
 
-    // Popover logic
-    function showPopoverForRow(anchorBtn, row){
-      const eel = row['EEL'] ?? '';
-      const ti  = row['TURN-IN'] ?? '';
-      const ser = row['SERIAL'] ?? '';
-
+    // Popover
+    function showPop(anchor,row){
       pop.innerHTML = `
-        <button class="close-pop" aria-label="Close" onclick="(${hidePopover.toString()})()">×</button>
+        <button class="x" aria-label="Close" onclick="(${hidePop.toString()})()">×</button>
         <h4>Details</h4>
-        <div class="kv"><div class="k">EEL</div><div class="v">${escapeHTML(String(eel))}</div></div>
-        <div class="kv"><div class="k">TURN-IN</div><div class="v">${escapeHTML(String(ti))}</div></div>
-        <div class="kv"><div class="k">SERIAL</div><div class="v">${escapeHTML(String(ser))}</div></div>
+        ${HIDDEN_KEYS.map(k=>`
+          <div class="kv"><div class="k">${k}</div><div class="v">${escapeHTML(String(row[k]??''))}</div></div>
+        `).join('')}
       `;
-      pop.style.display = 'block';
+      pop.style.display='block';
 
-      // Position near button
-      const r = anchorBtn.getBoundingClientRect();
-      const pad = 8;
-      const popW = Math.min(280, Math.max(220, r.width*6));
-      pop.style.width = popW + 'px';
-
-      // Default: right of button; fallback below if overflow
+      const r = anchor.getBoundingClientRect();
+      const pad=8, popW=260;
       let left = Math.min(window.innerWidth - popW - pad, r.right + pad);
-      let top = Math.max(8, r.top + window.scrollY - 4);
-
-      // If too close to bottom, shift up
-      const estH = 160;
-      if (top + estH > window.scrollY + window.innerHeight - 8) {
+      let top  = Math.max(8, r.top + window.scrollY - 4);
+      const estH = 180;
+      if (top + estH > window.scrollY + window.innerHeight - 8){
         top = Math.max(8, window.scrollY + window.innerHeight - estH - 8);
       }
-
-      pop.style.left = left + 'px';
-      pop.style.top  = top  + 'px';
+      pop.style.width = popW+'px';
+      pop.style.left  = left+'px';
+      pop.style.top   = top+'px';
     }
-
-    function hidePopover(){ pop.style.display = 'none'; }
+    function hidePop(){ pop.style.display='none'; }
 
     // Utils
     function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
