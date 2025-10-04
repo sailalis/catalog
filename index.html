@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -12,144 +11,177 @@
             box-sizing: border-box;
         }
 
-    body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        background: #f5f5f5;
-        color: #333;
-    }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            overflow: hidden;
+        }
 
-    .header {
-        position: sticky;
-        top: 0;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 16px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-        z-index: 100;
-    }
-
-    h1 {
-        font-size: 24px;
-        margin-bottom: 16px;
-        font-weight: 600;
-    }
-
-    .search-box {
-        width: 100%;
-        padding: 12px 16px;
-        border: none;
-        border-radius: 8px;
-        font-size: 16px;
-        margin-bottom: 12px;
-        background: white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .search-box:focus {
-        outline: none;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-
-    .filters {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 8px;
-    }
-
-    .filter-btn {
-        padding: 8px 16px;
-        border: 2px solid rgba(255,255,255,0.5);
-        border-radius: 20px;
-        background: transparent;
-        color: white;
-        font-size: 14px;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-weight: 500;
-    }
-
-    .filter-btn.active {
-        background: white;
-        color: #667eea;
-        border-color: white;
-    }
-
-    .stats {
-        font-size: 13px;
-        opacity: 0.9;
-        margin-top: 8px;
-    }
-
-    .table-container {
-        overflow-x: auto;
-        background: white;
-        margin: 0;
-        height: calc(100vh - 280px);
-        overflow-y: auto;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
-    }
-
-    thead {
-        position: sticky;
-        top: 0;
-        background: #f8f9fa;
-        z-index: 10;
-    }
-
-    th {
-        padding: 12px 8px;
-        text-align: left;
-        font-weight: 600;
-        border-bottom: 2px solid #dee2e6;
-        white-space: nowrap;
-        font-size: 12px;
-        text-transform: uppercase;
-        color: #495057;
-    }
-
-    td {
-        padding: 12px 8px;
-        border-bottom: 1px solid #e9ecef;
-    }
-
-    tr:hover {
-        background: #f8f9fa;
-    }
-
-    .loading {
-        text-align: center;
-        padding: 40px;
-        color: #666;
-    }
-
-    .no-results {
-        text-align: center;
-        padding: 40px;
-        color: #999;
-    }
-
-    @media (max-width: 768px) {
-        th, td {
-            padding: 8px 4px;
-            font-size: 12px;
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 100;
         }
 
         h1 {
-            font-size: 20px;
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 12px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .search-box:focus {
+            outline: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
         }
 
         .filter-btn {
-            font-size: 12px;
-            padding: 6px 12px;
+            padding: 8px 16px;
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 20px;
+            background: transparent;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
         }
-    }
-</style>
+
+        .filter-btn.active {
+            background: white;
+            color: #667eea;
+            border-color: white;
+        }
+
+        .stats {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-top: 8px;
+        }
+
+        .table-wrapper {
+            position: fixed;
+            top: 240px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: white;
+            overflow: hidden;
+        }
+
+        .table-header {
+            position: sticky;
+            top: 0;
+            background: #f8f9fa;
+            z-index: 10;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .table-header table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table-header th {
+            padding: 12px 8px;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #495057;
+            border: none;
+        }
+
+        .table-container {
+            height: calc(100% - 45px);
+            overflow-y: auto;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .table-spacer {
+            width: 100%;
+        }
+
+        .table-content {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+        }
+
+        .table-content table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .table-content td {
+            padding: 12px 8px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .table-content tr:hover {
+            background: #f8f9fa;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        @media (max-width: 768px) {
+            .table-header th, .table-content td {
+                padding: 8px 4px;
+                font-size: 12px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .filter-btn {
+                font-size: 12px;
+                padding: 6px 12px;
+            }
+
+            .table-wrapper {
+                top: 260px;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="header">
@@ -163,86 +195,8 @@
         <div class="stats" id="stats">Loading data...</div>
     </div>
 
-<div class="table-container" id="tableContainer">
-    <div class="loading">Loading parts catalog...</div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-<script>
-    let allData = [];
-    let filteredData = [];
-    const activeFilters = new Set();
-    Papa.parse('https://raw.githubusercontent.com/sailalis/catalog/refs/heads/main/datatest.csv', {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            allData = results.data;
-            filteredData = allData;
-            renderTable();
-            updateStats();
-        },
-        error: function(error) {
-            document.getElementById('tableContainer').innerHTML = 
-                '<div class="no-results">Error loading catalog. Sorry!</div>';
-        }
-    });
-
-    document.getElementById('searchBox').addEventListener('input', function(e) {
-        filterData();
-    });
-
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const filter = this.dataset.filter;
-            
-            if (activeFilters.has(filter)) {
-                activeFilters.delete(filter);
-                this.classList.remove('active');
-            } else {
-                activeFilters.add(filter);
-                this.classList.add('active');
-            }
-            
-            filterData();
-        });
-    });
-
-    function filterData() {
-        const searchTerm = document.getElementById('searchBox').value.toLowerCase();
-        
-        filteredData = allData.filter(row => {
-            // Search filter
-            const matchesSearch = searchTerm === '' || 
-                (row['JSF PART NUMBER'] && row['JSF PART NUMBER'].toLowerCase().includes(searchTerm)) ||
-                (row['MFR PART NUMBER'] && row['MFR PART NUMBER'].toLowerCase().includes(searchTerm)) ||
-                (row['NOMENCLATURE'] && row['NOMENCLATURE'].toLowerCase().includes(searchTerm));
-            
-            if (!matchesSearch) return false;
-            
-            // Active filters
-            for (let filter of activeFilters) {
-                if (row[filter] && row[filter].toLowerCase() !== 'yes') {
-                    return false;
-                }
-            }
-            
-            return true;
-        });
-        
-        renderTable();
-        updateStats();
-    }
-
-    function renderTable() {
-        const container = document.getElementById('tableContainer');
-        
-        if (filteredData.length === 0) {
-            container.innerHTML = '<div class="no-results">No parts found matching your criteria.</div>';
-            return;
-        }
-        
-        let html = `
+    <div class="table-wrapper">
+        <div class="table-header">
             <table>
                 <thead>
                     <tr>
@@ -255,31 +209,151 @@
                         <th>Turn-in</th>
                     </tr>
                 </thead>
-                <tbody>
-        `;
-        
-        filteredData.forEach(row => {
-            html += `
-                <tr>
-                    <td>${row['JSF PART NUMBER'] || ''}</td>
-                    <td>${row['MFR PART NUMBER'] || ''}</td>
-                    <td>${row['NOMENCLATURE'] || ''}</td>
-                    <td>${row['SMR CODE'] || ''}</td>
-                    <td>${row['EEL'] || ''}</td>
-                    <td>${row['SERIALIZED'] || ''}</td>
-                    <td>${row['TURN-IN'] || ''}</td>
-                </tr>
-            `;
-        });
-        
-        html += '</tbody></table>';
-        container.innerHTML = html;
-    }
+            </table>
+        </div>
+        <div class="table-container" id="tableContainer">
+            <div class="loading">Loading parts catalog...</div>
+        </div>
+    </div>
 
-    function updateStats() {
-        const stats = document.getElementById('stats');
-        stats.textContent = `Showing ${filteredData.length.toLocaleString()} of ${allData.length.toLocaleString()} parts`;
-    }
-</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script>
+        let allData = [];
+        let filteredData = [];
+        const activeFilters = new Set();
+        
+        // Virtual scrolling settings
+        const ROW_HEIGHT = 45;
+        const BUFFER_SIZE = 10;
+        let scrollTop = 0;
+        let containerHeight = 0;
+
+        // Load CSV file
+        Papa.parse('https://raw.githubusercontent.com/sailalis/catalog/refs/heads/main/datatest.csv', {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                allData = results.data;
+                filteredData = allData;
+                renderVirtualTable();
+                updateStats();
+            },
+            error: function(error) {
+                document.getElementById('tableContainer').innerHTML = 
+                    '<div class="no-results">Error loading catalog. Sorry!</div>';
+            }
+        });
+
+        // Search functionality
+        document.getElementById('searchBox').addEventListener('input', function(e) {
+            filterData();
+        });
+
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const filter = this.dataset.filter;
+                
+                if (activeFilters.has(filter)) {
+                    activeFilters.delete(filter);
+                    this.classList.remove('active');
+                } else {
+                    activeFilters.add(filter);
+                    this.classList.add('active');
+                }
+                
+                filterData();
+            });
+        });
+
+        // Scroll handling
+        const tableContainer = document.getElementById('tableContainer');
+        tableContainer.addEventListener('scroll', function() {
+            scrollTop = this.scrollTop;
+            renderVirtualTable();
+        });
+
+        function filterData() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            
+            filteredData = allData.filter(row => {
+                // Search filter
+                const matchesSearch = searchTerm === '' || 
+                    (row['JSF PART NUMBER'] && row['JSF PART NUMBER'].toLowerCase().includes(searchTerm)) ||
+                    (row['MFR PART NUMBER'] && row['MFR PART NUMBER'].toLowerCase().includes(searchTerm)) ||
+                    (row['NOMENCLATURE'] && row['NOMENCLATURE'].toLowerCase().includes(searchTerm));
+                
+                if (!matchesSearch) return false;
+                
+                // Active filters
+                for (let filter of activeFilters) {
+                    if (row[filter] && row[filter].toLowerCase() !== 'yes') {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+            
+            scrollTop = 0;
+            tableContainer.scrollTop = 0;
+            renderVirtualTable();
+            updateStats();
+        }
+
+        function renderVirtualTable() {
+            const container = tableContainer;
+            containerHeight = container.clientHeight;
+            
+            if (filteredData.length === 0) {
+                container.innerHTML = '<div class="no-results">No parts found matching your criteria.</div>';
+                return;
+            }
+            
+            // Calculate visible range
+            const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_SIZE);
+            const endIndex = Math.min(
+                filteredData.length,
+                Math.ceil((scrollTop + containerHeight) / ROW_HEIGHT) + BUFFER_SIZE
+            );
+            
+            const totalHeight = filteredData.length * ROW_HEIGHT;
+            const offsetY = startIndex * ROW_HEIGHT;
+            
+            // Build visible rows
+            let html = `<div class="table-spacer" style="height: ${totalHeight}px;"></div>`;
+            html += `<div class="table-content" style="transform: translateY(${offsetY}px);">`;
+            html += '<table><tbody>';
+            
+            for (let i = startIndex; i < endIndex; i++) {
+                const row = filteredData[i];
+                html += `
+                    <tr>
+                        <td>${row['JSF PART NUMBER'] || ''}</td>
+                        <td>${row['MFR PART NUMBER'] || ''}</td>
+                        <td>${row['NOMENCLATURE'] || ''}</td>
+                        <td>${row['SMR CODE'] || ''}</td>
+                        <td>${row['EEL'] || ''}</td>
+                        <td>${row['SERIALIZED'] || ''}</td>
+                        <td>${row['TURN-IN'] || ''}</td>
+                    </tr>
+                `;
+            }
+            
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        function updateStats() {
+            const stats = document.getElementById('stats');
+            stats.textContent = `Showing ${filteredData.length.toLocaleString()} of ${allData.length.toLocaleString()} parts`;
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            renderVirtualTable();
+        });
+    </script>
 </body>
 </html>
