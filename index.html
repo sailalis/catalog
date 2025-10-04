@@ -22,12 +22,19 @@
   /* Table area flush under banner */
   .wrap{position:fixed;left:0;right:0;bottom:0;background:#fff;overflow:hidden}
 
-  /* No stretch: width:max-content; header and body kept in sync on horizontal scroll */
+  /* Header + body. Prevent horizontal jiggle on mobile: overflow-x hidden + touch-action pan-y */
   .thead{position:sticky;top:0;background:#f8f9fa;border-bottom:2px solid #dee2e6;z-index:10;overflow:hidden}
   .thead table,#bodyTable{width:max-content;border-collapse:collapse;table-layout:auto}
   .thead th{padding:10px 12px;text-align:left;font-weight:700;white-space:nowrap;font-size:12px;text-transform:uppercase;color:#475569;border:none}
 
-  .container{height:100%;overflow:auto;position:relative}
+  .container{
+    height:100%;
+    overflow-y:auto;         /* vertical only */
+    overflow-x:hidden;       /* lock horizontal */
+    position:relative;
+    touch-action:pan-y;      /* block horizontal panning */
+    overscroll-behavior-x:none;
+  }
   .tbody{position:absolute;top:0;left:0}
   .spacer{width:100%}
   .tbody td{padding:10px 12px;border-bottom:1px solid #e9ecef;vertical-align:middle;white-space:nowrap}
@@ -39,10 +46,10 @@
   .nom a{color:inherit;text-decoration:none}
   .nom a:hover{text-decoration:underline}
   .nom .nom-wrap{
-    max-width:40ch;           /* tighter, wraps only if needed */
+    max-width:34ch;          /* tighter; will wrap if needed */
     overflow:hidden;
     display:-webkit-box;
-    -webkit-line-clamp:2;     /* fixed height for virtualization */
+    -webkit-line-clamp:2;    /* fixed height for virtualization */
     -webkit-box-orient:vertical;
   }
   .pn{display:grid;grid-template-columns:auto 1fr;column-gap:6px;row-gap:3px}
@@ -62,7 +69,7 @@
     .bar{gap:8px;padding:10px 12px}
     .bar h1{font-size:16px}
     .thead th,.tbody td{padding:8px 8px;font-size:12px}
-    .nom .nom-wrap{max-width:34ch}
+    .nom .nom-wrap{max-width:28ch}
   }
 </style>
 </head>
@@ -105,10 +112,10 @@
     // Visible: NOMENCLATURE (clickable) | PART NUMBER (stacked)
     const COLS = [
       { label: 'NOMENCLATURE', key: 'NOMENCLATURE' },
-      { label: 'PART NUMBER',  key: '_PARTNUM_' }, // JSF + MFR, never wrap
+      { label: 'PART NUMBER',  key: '_PARTNUM_' }, // JSF + MFR
     ];
 
-    // Hidden in popover (includes SMR)
+    // Hidden in popover
     const HIDDEN_KEYS = ['SMR','EEL','TURN-IN','SERIAL'];
 
     // Virtual rows
@@ -116,7 +123,7 @@
 
     // STATE
     let rows = [], rowsById = new Map(), filtered = [];
-    let lastStart = -1, lastEnd = -1, lastScrollLeft = 0;
+    let lastStart = -1, lastEnd = -1;
 
     // DOM
     const banner = document.getElementById('banner');
@@ -137,7 +144,13 @@
       wrap.style.top = banner.getBoundingClientRect().height + 'px';
     }
     placeTable();
-    window.addEventListener('resize', () => { placeTable(); computeAndSetColWidths(); setSearchWidth(); render(false); });
+
+    window.addEventListener('resize', () => {
+      placeTable();
+      computeAndSetColWidths();
+      setSearchWidth();
+      render(false);
+    });
 
     // Load CSV
     Papa.parse(CSV_URL, {
@@ -169,43 +182,46 @@
       return Math.ceil(ctx.measureText(str).width);
     }
 
-    // Compute snug pixel widths and sync header/body
+    // Compute snug widths that FIT the viewport (no horizontal scroll). Clamp PN then give remainder to NOM.
     function computeAndSetColWidths(){
-      // PART NUMBER column
+      const pad = 24;
+      const isMobile = window.innerWidth <= 768;
+      const avail = Math.max(240, (wrap.clientWidth || window.innerWidth) - 1); // -1 to avoid tiny overflow
+
+      // PART NUMBER: measure, but cap to a % of viewport so it never forces horizontal scroll
       let pnMax = meas('PART NUMBER');
       for (const r of rows){
         pnMax = Math.max(pnMax, meas(`JSF: ${(r['JSF PART NUMBER']||'').toString().trim()}`));
         pnMax = Math.max(pnMax, meas(`MFR: ${(r['MFR PART NUMBER']||'').toString().trim()}`));
       }
-      const pad = 24;
-      const PN_W = Math.min(Math.max(pnMax + pad, 160), 520);
+      let PN_W = pnMax + pad;
+      const PN_MIN = 160;
+      const PN_CAP = isMobile ? Math.floor(avail * 0.58) : Math.min(520, Math.floor(avail * 0.55));
+      PN_W = Math.max(PN_MIN, Math.min(PN_W, PN_CAP)); // never let PN exceed cap; values will ellipsis
 
-      // NOMENCLATURE: tighter width, allow wrap only if needed
-      let nomMax = meas('NOMENCLATURE');
-      const N = Math.min(rows.length, 400);
-      for (let i=0;i<N;i++){
-        const s = String(rows[i]['NOMENCLATURE']||'').slice(0,80);
-        nomMax = Math.max(nomMax, meas(s));
-      }
-      const isMobile = window.innerWidth <= 768;
-      const NOM_W = Math.min(Math.max(nomMax + pad, isMobile ? 220 : 240), isMobile ? 260 : 320);
+      // NOMENCLATURE gets the rest
+      const NOM_MIN = isMobile ? 200 : 240;
+      let NOM_W = Math.max(NOM_MIN, avail - PN_W);
 
+      // Apply to header
       cgHead.innerHTML = `
         <col style="width:${NOM_W}px">
         <col style="width:${PN_W}px">
       `;
 
+      // Store for body/search sizing
       computeAndSetColWidths.NOM_W = NOM_W;
       computeAndSetColWidths.PN_W  = PN_W;
+      computeAndSetColWidths.AVAIL = avail;
     }
 
-    // Make search bar as wide as NOM + PN
+    // Search width = NOM + PN, capped to viewport
     function setSearchWidth(){
-      const NOM_W = computeAndSetColWidths.NOM_W || 280;
-      const PN_W  = computeAndSetColWidths.PN_W  || 240;
-      const desired = NOM_W + PN_W;
-      const max = Math.max(240, Math.min(desired, window.innerWidth - 28));
-      q.style.width = max + 'px';
+      const w = Math.min(
+        (computeAndSetColWidths.NOM_W||280) + (computeAndSetColWidths.PN_W||240),
+        computeAndSetColWidths.AVAIL || (wrap.clientWidth || window.innerWidth)
+      );
+      q.style.width = Math.max(240, w) + 'px';
     }
 
     // Filters
@@ -233,25 +249,25 @@
         return true;
       });
       cont.scrollTop = 0;
+      // hard-lock horizontal to avoid jiggle
+      cont.scrollLeft = 0;
+      hdrTable.style.transform = 'translateX(0px)';
       lastStart = -1; lastEnd = -1;
       stats.textContent = `Showing ${fmt(filtered.length)} of ${fmt(rows.length)} parts`;
       render(true);
       hidePop();
     }
 
-    // Scroll: vertical virtualization + horizontal header lock
+    // Vertical scroll virtualization. Also hard-reset any accidental horizontal drift.
     cont.addEventListener('scroll', ()=>{
-      const sl = cont.scrollLeft;
-      if (sl !== lastScrollLeft){
-        lastScrollLeft = sl;
-        hdrTable.style.transform = `translateX(${-sl}px)`;
+      if (cont.scrollLeft !== 0){
+        cont.scrollLeft = 0;                // kill horizontal jiggle
+        hdrTable.style.transform = 'translateX(0px)';
       }
       requestAnimationFrame(()=>{ render(false); hidePop(); });
     }, {passive:true});
 
-    window.addEventListener('resize', ()=>{ render(false); });
-
-    // Click on NOMENCLATURE link to show details
+    // Click NOMENCLATURE to show popover
     document.addEventListener('click', (e)=>{
       const a = e.target.closest('a.nom-link[data-id]');
       if (a){
@@ -320,7 +336,8 @@
       html += `</tbody></table></div>`;
       cont.innerHTML = html;
 
-      hdrTable.style.transform = `translateX(${-cont.scrollLeft}px)`;
+      // Ensure header never drifts
+      hdrTable.style.transform = 'translateX(0px)';
     }
 
     // Popover: SMR + EEL + TURN-IN + SERIAL
@@ -350,8 +367,8 @@
 
     // Utils
     function debounce(fn,ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),ms); }; }
-    function escapeHTML(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-    function escapeAttr(s){ return escapeHTML(s).replace(/\n/g,' '); }
+    function escapeHTML(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function escapeAttr(s){ return escapeHTML(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/\n/g,' '); }
     function fmt(n){ return (n??0).toLocaleString(); }
   </script>
 </body>
